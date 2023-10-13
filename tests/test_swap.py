@@ -1,5 +1,8 @@
-import pytest
+import os
 import pathlib
+
+import pytest
+import numpy as np
 
 from settings import Settings
 from roop.face_util import extract_face_images
@@ -9,7 +12,7 @@ from roop.ProcessEntry import ProcessEntry
 from roop.FaceSet import FaceSet
 
 
-def progress_gradio(*args, **kwargs):
+def mock_progress_gradio(*args, **kwargs):
     pass
 
 
@@ -29,17 +32,16 @@ class TestSwapFace:
         source = 'tests/assets/ana-de-armas.jpg'
         target = 'tests/assets/wonder-woman.jpg'
 
-        SELECTION_FACES_DATA = extract_face_images(source, (False, 0))
+        source_face = extract_face_images(source, (False, 0))[0][0]
+        source_face.mask_offsets = (0,0)
 
-        face = SELECTION_FACES_DATA[0][0]
-        face.mask_offsets = (0,0)
         face_set = FaceSet()
-        face_set.faces.append(face)
+        face_set.faces.append(source_face)
         roop.globals.INPUT_FACESETS.append(face_set)
 
-        SELECTION_FACES_DATA = extract_face_images(target, (False, 0))
+        target_face = extract_face_images(target, (False, 0))[0][0]
 
-        roop.globals.TARGET_FACES.append(SELECTION_FACES_DATA[0][0])
+        roop.globals.TARGET_FACES.append(target_face)
 
         use_clip = False
         clip_text = None
@@ -49,7 +51,15 @@ class TestSwapFace:
         list_files_process.append(ProcessEntry(target, 0,0, 0))
 
         batch_process(list_files_process, use_clip, clip_text,
-                      processing_method == "In-Memory processing", progress_gradio)
+                      processing_method == "In-Memory processing", mock_progress_gradio)
         is_processing = False
         outdir = pathlib.Path(roop.globals.output_path)
-        outfiles = [item for item in outdir.rglob(f"{target.split('/')[-1].split('.')[0]}*") if item.is_file()]
+        result = [item for item in outdir.rglob(f"*{target.split('/')[-1].split('.')[0]}*") if item.is_file()][0]
+
+        swapped_face = extract_face_images(str(result), (False, 0))
+
+        source_similarity = np.dot(source_face['embedding'], swapped_face[0][0]['embedding'])
+        target_similarity = np.dot(target_face['embedding'], swapped_face[0][0]['embedding'])
+
+        assert source_similarity > target_similarity * 10
+        os.remove(result)
