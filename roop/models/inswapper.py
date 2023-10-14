@@ -7,11 +7,13 @@ from roop.processors.frame import face_align
 
 
 class INSwapper():
-    def __init__(self, model_file=None, model=None):
+    def __init__(self, model_file=None, device=None):
         self.model_file = model_file
-        self.model = model
-        if model is None:
-            self.model = torch.load(model_file)
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu') if device is None else device
+
+        self.model = torch.load(model_file)
+        self.model.to(self.device)
+        self.model.eval()
 
         self.input_mean = 0.0
         self.input_std = 255.0
@@ -30,28 +32,28 @@ class INSwapper():
 
     def forward(self, img, latent):
         img = (img - self.input_mean) / self.input_std
-        img = torch.tensor(img).permute(2, 0, 1).unsqueeze(0)
+        img = torch.tensor(img).permute(2, 0, 1).unsqueeze(0).to(self.device)
 
-        with torch.no_grad():
+        with torch.inference_mode():
             pred = self.model(img, latent)
 
-        return pred[0].numpy()
+        return pred[0].cpu().numpy()
 
     def get(self, img, target_face, source_face, paste_back=False):
         aimg, M = face_align.norm_crop2(img, target_face.kps, self.input_size[0])
         blob = cv2.dnn.blobFromImage(aimg, 1.0 / self.input_std, self.input_size,
                                     (self.input_mean, self.input_mean, self.input_mean), swapRB=True)
 
-        latent = source_face.normed_embedding.reshape((1,-1))
+        latent = source_face.normed_embedding.reshape((1,-1)).to(self.device)
         latent = torch.mm(latent, self.emap)
         latent /= torch.norm(latent)
 
         with torch.no_grad():
-            blob = torch.tensor(blob)
+            blob = torch.tensor(blob).to(self.device)
 
             pred = self.model(blob, latent)
 
-            img_fake = pred[0].permute(1, 2, 0).numpy()
+            img_fake = pred[0].permute(1, 2, 0).cpu().numpy()
             bgr_fake = np.clip(255 * img_fake, 0, 255).astype(np.uint8)[:, :, ::-1]
 
             if not paste_back:

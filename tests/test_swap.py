@@ -126,7 +126,6 @@ class TestSwapFace:
         self.process_mgr.processors.pop(0)
         os.remove(enhanced_path)
 
-
     def test_swap_gif(self):
         source = 'tests/assets/ana-de-armas.jpg'
         target = 'tests/assets/wonder-woman.gif'
