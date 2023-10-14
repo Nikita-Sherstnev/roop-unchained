@@ -1,20 +1,95 @@
 import threading
 from typing import Any
-import insightface
+import os.path as osp
+import glob
 
 import roop.globals
 from roop.typing import Frame, Face
+from roop.models import Landmark, RetinaFace, Attribute, ArcFaceONNX
 
 import cv2
 import numpy as np
 from skimage import transform as trans
 from roop.capturer import get_video_frame
 from roop.utilities import resolve_relative_path, conditional_download
+from roop.models.inswapper import INSwapper
 
 FACE_ANALYSER = None
 THREAD_LOCK_ANALYSER = threading.Lock()
 THREAD_LOCK_SWAPPER = threading.Lock()
 FACE_SWAPPER = None
+
+
+class FaceAnalysis:
+    def __init__(self, name, allowed_modules=None, **kwargs):
+        self.models = {}
+        self.model_dir = osp.join('./models', name)
+        onnx_files = glob.glob(osp.join(self.model_dir, '*.onnx'))
+        onnx_files = sorted(onnx_files)
+        self.models = {
+            'landmark_3d_68': Landmark(osp.join(self.model_dir, '1k3d68.onnx')),
+            'landmark_2d_106': Landmark(osp.join(self.model_dir, '2d106det.onnx')),
+            'detection': RetinaFace(osp.join(self.model_dir, 'det_10g.onnx')),
+            'genderage': Attribute(osp.join(self.model_dir, 'genderage.onnx')),
+            'recognition': ArcFaceONNX(osp.join(self.model_dir, 'w600k_r50.onnx'))
+        }
+
+        assert 'detection' in self.models
+        self.det_model = self.models['detection']
+
+    def prepare(self, ctx_id, det_thresh=0.5, det_size=(640, 640)):
+        self.det_thresh = det_thresh
+        assert det_size is not None
+        print('set det-size:', det_size)
+        self.det_size = det_size
+        for taskname, model in self.models.items():
+            if taskname=='detection':
+                model.prepare(ctx_id, input_size=det_size, det_thresh=det_thresh)
+            else:
+                model.prepare(ctx_id)
+
+    def get(self, img, max_num=0):
+        bboxes, kpss = self.det_model.detect(img,
+                                             max_num=max_num,
+                                             metric='default')
+        if bboxes.shape[0] == 0:
+            return []
+        ret = []
+        for i in range(bboxes.shape[0]):
+            bbox = bboxes[i, 0:4]
+            det_score = bboxes[i, 4]
+            kps = None
+            if kpss is not None:
+                kps = kpss[i]
+            face = Face(bbox=bbox, kps=kps, det_score=det_score)
+            for taskname, model in self.models.items():
+                if taskname=='detection':
+                    continue
+                model.get(img, face)
+            ret.append(face)
+        return ret
+
+    def draw_on(self, img, faces):
+        import cv2
+        dimg = img.copy()
+        for i in range(len(faces)):
+            face = faces[i]
+            box = face.bbox.astype(int)
+            color = (0, 0, 255)
+            cv2.rectangle(dimg, (box[0], box[1]), (box[2], box[3]), color, 2)
+            if face.kps is not None:
+                kps = face.kps.astype(int)
+
+                for l in range(kps.shape[0]):
+                    color = (0, 0, 255)
+                    if l == 0 or l == 3:
+                        color = (0, 255, 0)
+                    cv2.circle(dimg, (kps[l][0], kps[l][1]), 1, color,
+                               2)
+            if face.gender is not None and face.age is not None:
+                cv2.putText(dimg,'%s,%d'%(face.sex,face.age), (box[0]-1, box[1]-4),cv2.FONT_HERSHEY_COMPLEX,0.7,(0,255,0),1)
+
+        return dimg
 
 
 def get_face_analyser() -> Any:
@@ -24,9 +99,9 @@ def get_face_analyser() -> Any:
         if FACE_ANALYSER is None:
             if roop.globals.CFG.force_cpu:
                 print('Forcing CPU for Face Analysis')
-                FACE_ANALYSER = insightface.app.FaceAnalysis(name='buffalo_l', providers=['CPUExecutionProvider'])
+                FACE_ANALYSER = FaceAnalysis(name='buffalo_l', providers=['CPUExecutionProvider'])
             else:
-                FACE_ANALYSER = insightface.app.FaceAnalysis(name='buffalo_l', providers=roop.globals.execution_providers)
+                FACE_ANALYSER = FaceAnalysis(name='buffalo_l', providers=roop.globals.execution_providers)
             FACE_ANALYSER.prepare(ctx_id=0, det_size=(640, 640) if roop.globals.default_det_size else (320,320))
     return FACE_ANALYSER
 
@@ -41,17 +116,17 @@ def get_first_face(frame: Frame) -> Any:
 
 
 def get_all_faces(frame: Frame) -> Any:
-    try:
-        faces = get_face_analyser().get(frame)
-        return sorted(faces, key = lambda x : x.bbox[0])
-    except:
-        return None
+    # try:
+    faces = get_face_analyser().get(frame)
+    return sorted(faces, key = lambda x : x.bbox[0])
+    # except:
+    #     return None
 
 
 def extract_face_images(source_filename, video_info, extra_padding=-1.0):
     face_data = []
     source_image = None
-    
+
     if video_info[0]:
         frame = get_video_frame(source_filename, video_info[1])
         if frame is not None:
@@ -60,7 +135,7 @@ def extract_face_images(source_filename, video_info, extra_padding=-1.0):
             return face_data
     else:
         source_image = cv2.imread(source_filename)
-        
+
     faces = get_all_faces(source_image)
     if faces is None:
         return face_data
@@ -103,7 +178,7 @@ def extract_face_images(source_filename, video_info, extra_padding=-1.0):
             if not found:
                 print("No face found after resizing, this shouldn't happen!")
             continue
-        
+
 
         face_temp = source_image[startY:endY, startX:endX]
         if face_temp.size < 1:
@@ -131,13 +206,14 @@ def get_face_swapper() -> Any:
 
     with THREAD_LOCK_SWAPPER:
         if FACE_SWAPPER is None:
-            model_path = resolve_relative_path('../models/inswapper_128.onnx')
-            FACE_SWAPPER = insightface.model_zoo.get_model(model_path, providers=roop.globals.execution_providers)
+            model_path = resolve_relative_path('../models/inswapper_128.pt')
+            FACE_SWAPPER = INSwapper(model_path)
     return FACE_SWAPPER
 
 
 def pre_check() -> bool:
     download_directory_path = resolve_relative_path('../models')
+    # TODO update link
     conditional_download(download_directory_path, ['https://huggingface.co/countfloyd/deepfake/resolve/main/inswapper_128.onnx'])
     return True
 
@@ -173,8 +249,8 @@ def resize_image_keep_content(image, new_width=512, new_height=512):
     resize_img = np.zeros(shape=(new_height,new_width,3), dtype=image.dtype)
     offs = (new_width - w) if h == new_height else (new_height - h)
     startoffs = int(offs // 2) if offs % 2 == 0 else int(offs // 2) + 1
-    offs = int(offs // 2) 
-    
+    offs = int(offs // 2)
+
     if h == new_height:
         resize_img[0:new_height, startoffs:new_width-offs] = image
     else:
@@ -187,7 +263,7 @@ def rotate_image_90(image, rotate=True):
         return np.rot90(image)
     else:
         return np.rot90(image,1,(1,0))
-    
+
 def rotate_image_180(image):
     return np.flip(image,0)
 

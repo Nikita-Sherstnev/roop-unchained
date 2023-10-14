@@ -38,9 +38,10 @@ class TestSwapFace:
         roop.globals.video_encoder = roop.globals.CFG.output_video_codec
         roop.globals.video_quality = roop.globals.CFG.video_quality
         roop.globals.max_memory = roop.globals.CFG.memory_limit if roop.globals.CFG.memory_limit > 0 else None
-        roop.globals.CFG.force_cpu = True
+        roop.globals.CFG.force_cpu = False
         roop.globals.output_path = 'output'
         roop.globals.face_swap_mode = 'first'
+        # roop.globals.execution_providers = ['CUDAExecutionProvider']
 
     def test_swap_one_face(self):
         source = 'tests/assets/ana-de-armas.jpg'

@@ -12,3 +12,6 @@ temp
 config.yaml
 run.bat
 venv
+.coverage
+htmlcov
+.pytest_cache
