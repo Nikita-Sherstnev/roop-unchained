@@ -30,7 +30,7 @@ class FaceAnalysis:
             'landmark_3d_68': Landmark(osp.join(self.model_dir, '1k3d68.onnx')),
             'landmark_2d_106': Landmark(osp.join(self.model_dir, '2d106det.onnx')),
             'detection': RetinaFace(osp.join(self.model_dir, 'det_10g.onnx')),
-            'genderage': Attribute(osp.join(self.model_dir, 'genderage.onnx')),
+            'genderage': Attribute(osp.join(self.model_dir, 'genderage.pt')),
             'recognition': ArcFace(osp.join(self.model_dir, 'w600k_r50.pt')),
         }
 
