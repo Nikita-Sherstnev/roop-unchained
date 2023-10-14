@@ -5,7 +5,7 @@ import psutil
 
 from roop.ProcessOptions import ProcessOptions
 
-from roop.face_util import get_first_face, get_all_faces
+from roop.face_util import get_first_face, get_all_faces, rotate_image_180
 from roop.utilities import compute_cosine_distance, get_device, str_to_class
 
 from typing import Any, List, Callable
@@ -162,11 +162,11 @@ class ProcessMgr():
             frame = self.frames_queue[threadindex].get()
             if frame is None:
                 self.processing_threads -= 1
-                self.processed_queue[threadindex].put(None)
+                self.processed_queue[threadindex].put((False, None))
                 return
             else:
                 resimg = self.process_frame(frame)
-                self.processed_queue[threadindex].put(resimg)
+                self.processed_queue[threadindex].put((True, resimg))
                 del frame
                 progress()
 
@@ -176,12 +176,12 @@ class ProcessMgr():
         num_producers = self.num_threads
         
         while True:
-            frame = self.processed_queue[nextindex % self.num_threads].get()
+            process, frame = self.processed_queue[nextindex % self.num_threads].get()
             nextindex += 1
             if frame is not None:
                 self.videowriter.write_frame(frame)
                 del frame
-            else:
+            elif process == False:
                 num_producers -= 1
                 if num_producers < 1:
                     return
@@ -247,28 +247,62 @@ class ProcessMgr():
         self.progress_gradio((progress.n, self.total_frames), desc='Processing', total=self.total_frames, unit='frames')
 
 
+    def on_no_face_action(self, frame:Frame):
+        if roop.globals.no_face_action == 0:
+            return None, frame
+        elif roop.globals.no_face_action == 2:
+            return None, None
 
-       
+        
+        faces = get_all_faces(frame)
+        if faces is not None:
+            return faces, frame
+        return None, frame
+      
+
+
 
     def process_frame(self, frame:Frame):
         if len(self.input_face_datas) < 1:
             return frame
     
         temp_frame = frame.copy()
+        num_swapped, temp_frame = self.swap_faces(frame, temp_frame)
+        if num_swapped > 0:
+            return temp_frame
+        if roop.globals.no_face_action == 0:
+            return frame
+        if roop.globals.no_face_action == 2:
+            return None
+        else:
+            copyframe = frame.copy()
+            copyframe = rotate_image_180(copyframe)
+            temp_frame = copyframe.copy()
+            num_swapped, temp_frame = self.swap_faces(copyframe, temp_frame)
+            if num_swapped == 0:
+                return frame
+            temp_frame = rotate_image_180(temp_frame)
+            return temp_frame
 
+
+
+    def swap_faces(self, frame, temp_frame):
+        num_faces_found = 0
         if self.options.swap_mode == "first":
             face = get_first_face(frame)
             if face is None:
-                return frame
+                return num_faces_found, frame
+            num_faces_found += 1
             temp_frame = self.process_face(self.options.selected_index, face, temp_frame)
 
         else:
             faces = get_all_faces(frame)
             if faces is None:
-                return frame
+                return num_faces_found, frame
             
             if self.options.swap_mode == "all":
                 for face in faces:
+                    num_faces_found += 1
                     temp_frame = self.process_face(self.options.selected_index, face, temp_frame)
                     del face
             
@@ -278,20 +312,24 @@ class ProcessMgr():
                         if compute_cosine_distance(tf.embedding, face.embedding) <= self.options.face_distance_threshold:
                             if i < len(self.input_face_datas):
                                 temp_frame = self.process_face(i, face, temp_frame)
+                                num_faces_found += 1
                             break
                         del face
-
             elif self.options.swap_mode == "all_female" or self.options.swap_mode == "all_male":
                 gender = 'F' if self.options.swap_mode == "all_female" else 'M'
                 for face in faces:
                     if face.sex == gender:
+                        num_faces_found += 1
                         temp_frame = self.process_face(self.options.selected_index, face, temp_frame)
                     del face
+
+        if num_faces_found == 0:
+            return num_faces_found, frame
 
         maskprocessor = next((x for x in self.processors if x.processorname == 'clip2seg'), None)
         if maskprocessor is not None:
             temp_frame = self.process_mask(maskprocessor, frame, temp_frame)
-        return temp_frame
+        return num_faces_found, temp_frame
 
 
     def process_face(self,face_index, target_face, frame:Frame):

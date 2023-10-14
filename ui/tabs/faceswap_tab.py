@@ -28,9 +28,12 @@ selected_preview_index = 0
 is_processing = False            
 
 list_files_process : list[ProcessEntry] = []
+no_face_choices = ["Use untouched original frame","Retry rotated", "Skip Frame"]
 
 
 def faceswap_tab():
+    global no_face_choices
+
     with gr.Tab("🎭 Face Swap"):
         with gr.Row(variant='panel'):
             with gr.Column(scale=2):
@@ -80,7 +83,7 @@ def faceswap_tab():
                 selected_face_detection = gr.Dropdown(["First found", "All faces", "Selected face", "All female", "All male"], value="First found", label="Select face selection for swapping")
                 max_face_distance = gr.Slider(0.01, 1.0, value=0.65, label="Max Face Similarity Threshold")
                 video_swapping_method = gr.Dropdown(["Extract Frames to media","In-Memory processing"], value="In-Memory processing", label="Select video processing method", interactive=True)
-                _ = gr.Dropdown(["Use untouched original frame","Retry rotated", "Skip Frame"], value="Use untouched original frame", label="Action on no face detected", interactive=False)
+                no_face_action = gr.Dropdown(choices=no_face_choices, value=no_face_choices[0], label="Action on no face detected", interactive=True)
             with gr.Column(scale=1):
                 ui.globals.ui_selected_enhancer = gr.Dropdown(["None", "Codeformer", "DMDNet", "GFPGAN", "GPEN"], value="None", label="Select post-processing")
                 ui.globals.ui_blend_ratio = gr.Slider(0.0, 1.0, value=0.65, label="Original/Enhanced image blend ratio")
@@ -110,7 +113,7 @@ def faceswap_tab():
                 resultvideo = gr.Video(label='Final Video', interactive=False, visible=False)
 
     previewinputs = [preview_frame_num, bt_destfiles, fake_preview, ui.globals.ui_selected_enhancer, selected_face_detection,
-                        max_face_distance, ui.globals.ui_blend_ratio, chk_useclip, clip_text] 
+                        max_face_distance, ui.globals.ui_blend_ratio, chk_useclip, clip_text, no_face_action] 
     input_faces.select(on_select_input_face, None, None).then(fn=on_preview_frame_changed, inputs=previewinputs, outputs=[previewimage, mask_top, mask_bottom])
     bt_remove_selected_input_face.click(fn=remove_selected_input_face, outputs=[input_faces])
     bt_srcfiles.change(fn=on_srcfile_changed, show_progress='full', inputs=bt_srcfiles, outputs=[dynamic_face_selection, face_selection, input_faces])
@@ -140,7 +143,7 @@ def faceswap_tab():
 
     start_event = bt_start.click(fn=start_swap, 
         inputs=[ui.globals.ui_selected_enhancer, selected_face_detection, roop.globals.keep_frames,
-                    roop.globals.skip_audio, max_face_distance, ui.globals.ui_blend_ratio, chk_useclip, clip_text,video_swapping_method],
+                    roop.globals.skip_audio, max_face_distance, ui.globals.ui_blend_ratio, chk_useclip, clip_text,video_swapping_method, no_face_action],
         outputs=[bt_start, resultfiles])
     after_swap_event = start_event.then(fn=on_resultfiles_finished, inputs=[resultfiles], outputs=[resultimage, resultvideo])
     
@@ -179,7 +182,7 @@ def on_add_local_folder(folder):
 
 def on_srcfile_changed(srcfiles, progress=gr.Progress()):
     from roop.face_util import norm_crop2
-    global RECENT_DIRECTORY_SOURCE, SELECTION_FACES_DATA, IS_INPUT, input_faces, face_selection, last_image
+    global SELECTION_FACES_DATA, IS_INPUT, input_faces, face_selection, last_image
     
     IS_INPUT = True
 
@@ -345,7 +348,7 @@ def on_end_face_selection():
     return gr.Column.update(visible=False), None
 
 
-def on_preview_frame_changed(frame_num, files, fake_preview, enhancer, detection, face_distance, blend_ratio, use_clip, clip_text):
+def on_preview_frame_changed(frame_num, files, fake_preview, enhancer, detection, face_distance, blend_ratio, use_clip, clip_text, no_face_action):
     global SELECTED_INPUT_FACE_INDEX, is_processing
 
     from roop.core import live_swap
@@ -376,6 +379,7 @@ def on_preview_frame_changed(frame_num, files, fake_preview, enhancer, detection
     roop.globals.selected_enhancer = enhancer
     roop.globals.distance_threshold = face_distance
     roop.globals.blend_ratio = blend_ratio
+    roop.globals.no_face_action = index_of_no_face_action(no_face_action)
 
     if use_clip and clip_text is None or len(clip_text) < 1:
         use_clip = False
@@ -438,6 +442,10 @@ def on_clear_destfiles():
     return ui.globals.ui_target_thumbs    
 
 
+def index_of_no_face_action(dropdown_text):
+    global no_face_choices
+
+    return no_face_choices.index(dropdown_text) 
 
 def translate_swap_mode(dropdown_text):
     if dropdown_text == "Selected face":
@@ -450,11 +458,11 @@ def translate_swap_mode(dropdown_text):
         return "all_male"
     
     return "all"
-        
+
 
 
 def start_swap( enhancer, detection, keep_frames, skip_audio, face_distance, blend_ratio,
-                use_clip, clip_text, processing_method, progress=gr.Progress(track_tqdm=False)):
+                use_clip, clip_text, processing_method, no_face_action, progress=gr.Progress(track_tqdm=False)):
     from ui.main import prepare_environment
     from roop.core import batch_process
     global is_processing, list_files_process
@@ -475,6 +483,7 @@ def start_swap( enhancer, detection, keep_frames, skip_audio, face_distance, ble
     roop.globals.keep_frames = keep_frames
     roop.globals.skip_audio = skip_audio
     roop.globals.face_swap_mode = translate_swap_mode(detection)
+    roop.globals.no_face_action = index_of_no_face_action(no_face_action)
     if use_clip and clip_text is None or len(clip_text) < 1:
         use_clip = False
     
@@ -579,7 +588,7 @@ def on_resultfiles_selected(evt: gr.SelectData, files):
 def on_resultfiles_finished(files):
     selected_index = 0
     if files is None or len(files) < 1:
-        return None
+        return None, None
     
     filename = files[selected_index].name
     if util.is_video(filename):

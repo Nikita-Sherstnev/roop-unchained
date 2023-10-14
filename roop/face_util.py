@@ -69,34 +69,60 @@ def extract_face_images(source_filename, video_info, extra_padding=-1.0):
     for face in faces:
         (startX, startY, endX, endY) = face['bbox'].astype("int")
         if extra_padding > 0.0:
-            # top needs extra room for detection
-            padding = int((endY - startY) * extra_padding)
-            oldY = startY
-            startY -= padding
+            if source_image.shape[:2] == (512,512):
+                i += 1
+                face_data.append([face, source_image])
+                continue
 
-            extra_padding = 0.25
-            padding = int((endY - oldY) * extra_padding)
-            endY += padding
-            padding = int((endX - startX) * extra_padding)
-            startX -= padding
-            endX += padding
+            found = False
+            for i in range(1,3):
+                (startX, startY, endX, endY) = face['bbox'].astype("int")
+                cutout_padding = extra_padding
+                # top needs extra room for detection
+                padding = int((endY - startY) * cutout_padding)
+                oldY = startY
+                startY -= padding
 
-            if startX < 0:
-                startX = 0
-            if endX > source_image.shape[1]:
-                endX = source_image.shape[1]
-            if startY < 0:
-                startY = 0
-            if endY > source_image.shape[0]:
-                endY = source_image.shape[0]
+                factor = 0.25 if i == 1 else 0.5
+                cutout_padding = factor
+                padding = int((endY - oldY) * cutout_padding)
+                endY += padding
+                padding = int((endX - startX) * cutout_padding)
+                startX -= padding
+                endX += padding
+                startX, endX, startY, endY = clamp_cut_values(startX, endX, startY, endY, source_image)
+                face_temp = source_image[startY:endY, startX:endX]
+                face_temp = resize_image_keep_content(face_temp)
+                testfaces = get_all_faces(face_temp)
+                if testfaces is not None and len(testfaces) > 0:
+                    i += 1
+                    face_data.append([testfaces[0], face_temp])
+                    found = True
+                    break
+
+            if not found:
+                print("No face found after resizing, this shouldn't happen!")
+            continue
+        
 
         face_temp = source_image[startY:endY, startX:endX]
         if face_temp.size < 1:
             continue
+
         i += 1
         face_data.append([face, face_temp])
     return face_data
 
+def clamp_cut_values(startX, endX, startY, endY, image):
+    if startX < 0:
+        startX = 0
+    if endX > image.shape[1]:
+        endX = image.shape[1]
+    if startY < 0:
+        startY = 0
+    if endY > image.shape[0]:
+        endY = image.shape[0]
+    return startX, endX, startY, endY
 
 
 
@@ -130,7 +156,7 @@ def face_offset_top(face: Face, offset):
     return face
 
 
-def resize_image(image, new_width=512, new_height=512):
+def resize_image_keep_content(image, new_width=512, new_height=512):
     dim = None
     (h, w) = image.shape[:2]
     if h > w:
@@ -144,7 +170,7 @@ def resize_image(image, new_width=512, new_height=512):
     (h, w) = image.shape[:2]
     if h == new_height and w == new_width:
         return image
-    resize_img = np.zeros(shape=(new_height,new_width,3), dtype=np.int16)
+    resize_img = np.zeros(shape=(new_height,new_width,3), dtype=image.dtype)
     offs = (new_width - w) if h == new_height else (new_height - h)
     startoffs = int(offs // 2) if offs % 2 == 0 else int(offs // 2) + 1
     offs = int(offs // 2) 
@@ -154,7 +180,17 @@ def resize_image(image, new_width=512, new_height=512):
     else:
         resize_img[startoffs:new_height-offs, 0:new_width] = image
     return resize_img
+
+
+def rotate_image_90(image, rotate=True):
+    if rotate:
+        return np.rot90(image)
+    else:
+        return np.rot90(image,1,(1,0))
     
+def rotate_image_180(image):
+    return np.flip(image,0)
+
 
 # alignment code from insightface https://github.com/deepinsight/insightface/blob/master/python-package/insightface/utils/face_align.py
 

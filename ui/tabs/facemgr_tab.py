@@ -4,7 +4,7 @@ import cv2
 import gradio as gr
 import roop.utilities as util
 import roop.globals
-from roop.face_util import extract_face_images, resize_image
+from roop.face_util import extract_face_images
 
 selected_face_index = -1
 thumbs = []
@@ -115,10 +115,17 @@ def on_clear_clicked():
 
 
 def on_update_clicked():
+    if len(images) < 1:
+        gr.Warning(f"No faces to create faceset from!")
+        return None
+
     imgnames = []
     for index,img in enumerate(images):
         filename = os.path.join(roop.globals.output_path, f'{index}.png')
-        cv2.imwrite(filename, resize_image(img, 512, 512))
+        # if img.shape[0] != 512 or img.shape[1] != 512:
+        # cv2.imwrite(filename, resize_image_keep_content(img, 512, 512))
+        # removed resizing
+        cv2.imwrite(filename, img)
         imgnames.append(filename)
 
     finalzip = os.path.join(roop.globals.output_path, 'faceset.fsz')        

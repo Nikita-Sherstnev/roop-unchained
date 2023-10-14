@@ -105,10 +105,10 @@ def release_resources() -> None:
         process_mgr = None
 
     gc.collect()
-    if 'CUDAExecutionProvider' in roop.globals.execution_providers and torch.cuda.is_available():
-        with torch.cuda.device('cuda'):
-            torch.cuda.empty_cache()
-            torch.cuda.ipc_collect()
+    # if 'CUDAExecutionProvider' in roop.globals.execution_providers and torch.cuda.is_available():
+    #     with torch.cuda.device('cuda'):
+    #         torch.cuda.empty_cache()
+    #         torch.cuda.ipc_collect()
 
 
 def pre_check() -> bool:
@@ -187,7 +187,10 @@ def live_swap(frame, swap_mode, use_clip, clip_text, selected_index = 0):
     
     options = ProcessOptions(get_processing_plugins(use_clip), roop.globals.distance_threshold, roop.globals.blend_ratio, swap_mode, selected_index, clip_text)
     process_mgr.initialize(roop.globals.INPUT_FACESETS, roop.globals.TARGET_FACES, options)
-    return process_mgr.process_frame(frame)
+    newframe = process_mgr.process_frame(frame)
+    if newframe is None:
+        return frame
+    return newframe
 
 
 def preview_mask(frame, clip_text):

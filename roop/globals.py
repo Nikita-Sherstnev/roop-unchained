@@ -29,6 +29,8 @@ blend_ratio = 0.5
 distance_threshold = 0.65
 default_det_size = True
 
+no_face_action = 0
+
 processing = False 
 
 FACE_ENHANCER = None
