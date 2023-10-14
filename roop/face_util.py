@@ -5,7 +5,7 @@ import glob
 
 import roop.globals
 from roop.typing import Frame, Face
-from roop.models import Landmark, RetinaFace, Attribute, ArcFaceONNX
+from roop.models import Landmark, RetinaFace, Attribute, ArcFace
 
 import cv2
 import numpy as np
@@ -31,7 +31,7 @@ class FaceAnalysis:
             'landmark_2d_106': Landmark(osp.join(self.model_dir, '2d106det.onnx')),
             'detection': RetinaFace(osp.join(self.model_dir, 'det_10g.onnx')),
             'genderage': Attribute(osp.join(self.model_dir, 'genderage.onnx')),
-            'recognition': ArcFaceONNX(osp.join(self.model_dir, 'w600k_r50.onnx'))
+            'recognition': ArcFace(osp.join(self.model_dir, 'w600k_r50.pt')),
         }
 
         assert 'detection' in self.models

@@ -43,7 +43,7 @@ class INSwapper():
                                     (self.input_mean, self.input_mean, self.input_mean), swapRB=True)
 
         latent = source_face.normed_embedding.reshape((1,-1))
-        latent = torch.mm(torch.tensor(latent), self.emap)
+        latent = torch.mm(latent, self.emap)
         latent /= torch.norm(latent)
 
         with torch.no_grad():
