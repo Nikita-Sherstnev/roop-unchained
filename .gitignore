@@ -1,6 +1,6 @@
 .vs
 .idea
-models
+/models
 temp
 __pycache__
 *.pth
