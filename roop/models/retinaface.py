@@ -1,11 +1,9 @@
-import datetime
-import numpy as np
-import onnx
-import onnxruntime
 import os
 import os.path as osp
+
 import cv2
-import sys
+import torch
+import numpy as np
 
 
 def softmax(z):
@@ -63,63 +61,37 @@ def distance2kps(points, distance, max_shape=None):
         preds.append(py)
     return np.stack(preds, axis=-1)
 
+
 class RetinaFace:
-    def __init__(self, model_file=None, session=None):
-        import onnxruntime
+    def __init__(self, model_file=None, device=None):
         self.model_file = model_file
-        self.session = session
         self.taskname = 'detection'
-        if self.session is None:
-            assert self.model_file is not None
-            assert osp.exists(self.model_file)
-            self.session = onnxruntime.InferenceSession(self.model_file, None)
+
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu') if device is None else device
+
+        self.model = torch.load(model_file)
+        self.model.to(self.device)
+        self.model.eval()
+
         self.center_cache = {}
         self.nms_thresh = 0.4
         self.det_thresh = 0.5
         self._init_vars()
 
     def _init_vars(self):
-        input_cfg = self.session.get_inputs()[0]
-        input_shape = input_cfg.shape
-        #print(input_shape)
-        if isinstance(input_shape[2], str):
-            self.input_size = None
-        else:
-            self.input_size = tuple(input_shape[2:4][::-1])
-        #print('image_size:', self.image_size)
-        input_name = input_cfg.name
-        self.input_shape = input_shape
-        outputs = self.session.get_outputs()
-        output_names = []
-        for o in outputs:
-            output_names.append(o.name)
-        self.input_name = input_name
-        self.output_names = output_names
+        self.input_size = None
+
         self.input_mean = 127.5
         self.input_std = 128.0
-        #print(self.output_names)
-        #assert len(outputs)==10 or len(outputs)==15
+
         self.use_kps = False
         self._anchor_ratio = 1.0
         self._num_anchors = 1
-        if len(outputs)==6:
-            self.fmc = 3
-            self._feat_stride_fpn = [8, 16, 32]
-            self._num_anchors = 2
-        elif len(outputs)==9:
-            self.fmc = 3
-            self._feat_stride_fpn = [8, 16, 32]
-            self._num_anchors = 2
-            self.use_kps = True
-        elif len(outputs)==10:
-            self.fmc = 5
-            self._feat_stride_fpn = [8, 16, 32, 64, 128]
-            self._num_anchors = 1
-        elif len(outputs)==15:
-            self.fmc = 5
-            self._feat_stride_fpn = [8, 16, 32, 64, 128]
-            self._num_anchors = 1
-            self.use_kps = True
+
+        self.fmc = 3
+        self._feat_stride_fpn = [8, 16, 32]
+        self._num_anchors = 2
+        self.use_kps = True
 
     def prepare(self, ctx_id, **kwargs):
         if ctx_id<0:
@@ -142,14 +114,20 @@ class RetinaFace:
         bboxes_list = []
         kpss_list = []
         input_size = tuple(img.shape[0:2][::-1])
-        blob = cv2.dnn.blobFromImage(img, 1.0/self.input_std, input_size, (self.input_mean, self.input_mean, self.input_mean), swapRB=True)
-        net_outs = self.session.run(self.output_names, {self.input_name : blob})
+        blob = cv2.dnn.blobFromImage(img, 1.0/self.input_std, input_size,
+                                    (self.input_mean, self.input_mean, self.input_mean),
+                                    swapRB=True)
+
+        blob = torch.tensor(blob).to(self.device)
+
+        with torch.no_grad():
+            net_outs = self.model(blob)
 
         input_height = blob.shape[2]
         input_width = blob.shape[3]
         fmc = self.fmc
         for idx, stride in enumerate(self._feat_stride_fpn):
-            scores = net_outs[idx]
+            scores = net_outs[idx].cpu().numpy()
             bbox_preds = net_outs[idx+fmc]
             bbox_preds = bbox_preds * stride
             if self.use_kps:
@@ -161,22 +139,7 @@ class RetinaFace:
             if key in self.center_cache:
                 anchor_centers = self.center_cache[key]
             else:
-                #solution-1, c style:
-                #anchor_centers = np.zeros( (height, width, 2), dtype=np.float32 )
-                #for i in range(height):
-                #    anchor_centers[i, :, 1] = i
-                #for i in range(width):
-                #    anchor_centers[:, i, 0] = i
-
-                #solution-2:
-                #ax = np.arange(width, dtype=np.float32)
-                #ay = np.arange(height, dtype=np.float32)
-                #xv, yv = np.meshgrid(np.arange(width), np.arange(height))
-                #anchor_centers = np.stack([xv, yv], axis=-1).astype(np.float32)
-
-                #solution-3:
                 anchor_centers = np.stack(np.mgrid[:height, :width][::-1], axis=-1).astype(np.float32)
-                #print(anchor_centers.shape)
 
                 anchor_centers = (anchor_centers * stride).reshape( (-1, 2) )
                 if self._num_anchors>1:
@@ -185,17 +148,17 @@ class RetinaFace:
                     self.center_cache[key] = anchor_centers
 
             pos_inds = np.where(scores>=threshold)[0]
-            bboxes = distance2bbox(anchor_centers, bbox_preds)
+            bboxes = distance2bbox(anchor_centers, bbox_preds.cpu().numpy())
             pos_scores = scores[pos_inds]
             pos_bboxes = bboxes[pos_inds]
             scores_list.append(pos_scores)
             bboxes_list.append(pos_bboxes)
             if self.use_kps:
-                kpss = distance2kps(anchor_centers, kps_preds)
-                #kpss = kps_preds
+                kpss = distance2kps(anchor_centers, kps_preds.cpu().numpy())
                 kpss = kpss.reshape( (kpss.shape[0], -1, 2) )
                 pos_kpss = kpss[pos_inds]
                 kpss_list.append(pos_kpss)
+
         return scores_list, bboxes_list, kpss_list
 
     def detect(self, img, input_size = None, max_num=0, metric='default'):
@@ -282,12 +245,3 @@ class RetinaFace:
             order = order[inds + 1]
 
         return keep
-
-def get_retinaface(name, download=False, root='~/.insightface/models', **kwargs):
-    if not download:
-        assert os.path.exists(name)
-        return RetinaFace(name)
-    else:
-        from .model_store import get_model_file
-        _file = get_model_file("retinaface_%s" % name, root=root)
-        return retinaface(_file)

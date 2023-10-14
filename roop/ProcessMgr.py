@@ -1,5 +1,5 @@
 import os
-import cv2 
+import cv2
 import numpy as np
 import psutil
 
@@ -39,7 +39,7 @@ class ProcessMgr():
 
     processors = []
     options : ProcessOptions = None
-    
+
     num_threads = 1
     current_index = 0
     processing_threads = 1
@@ -55,10 +55,10 @@ class ProcessMgr():
     progress_gradio = None
     total_frames = 0
 
-    
 
 
-    plugins =  { 
+
+    plugins =  {
     'faceswap'      : 'FaceSwapInsightFace',
     'mask_clip2seg' : 'Mask_Clip2Seg',
     'codeformer'    : 'Enhance_CodeFormer',
@@ -124,7 +124,7 @@ class ProcessMgr():
         for f in current_files:
             if not roop.globals.processing:
                 return
-            
+
             temp_frame = cv2.imread(f)
             if temp_frame is not None:
                 resimg = self.process_frame(temp_frame)
@@ -146,7 +146,7 @@ class ProcessMgr():
             ret, frame = cap.read()
             if not ret:
                 break
-                
+
             self.frames_queue[num_frame % num_threads].put(frame, block=True)
             num_frame += 1
             if num_frame == total_num:
@@ -174,7 +174,7 @@ class ProcessMgr():
     def write_frames_thread(self):
         nextindex = 0
         num_producers = self.num_threads
-        
+
         while True:
             process, frame = self.processed_queue[nextindex % self.num_threads].get()
             nextindex += 1
@@ -185,7 +185,7 @@ class ProcessMgr():
                 num_producers -= 1
                 if num_producers < 1:
                     return
-            
+
 
 
     def run_batch_inmem(self, source_video, target_video, frame_start, frame_end, fps, threads:int = 1, skip_audio=False):
@@ -217,11 +217,11 @@ class ProcessMgr():
         with tqdm(total=self.total_frames, desc='Processing', unit='frames', dynamic_ncols=True, bar_format=progress_bar_format) as progress:
             with ThreadPoolExecutor(thread_name_prefix='swap_proc', max_workers=self.num_threads) as executor:
                 futures = []
-                
+
                 for threadindex in range(threads):
                     future = executor.submit(self.process_videoframes, threadindex, lambda: self.update_progress(progress))
                     futures.append(future)
-                
+
                 for future in as_completed(futures):
                     future.result()
         # wait for the task to complete
@@ -253,19 +253,19 @@ class ProcessMgr():
         elif roop.globals.no_face_action == 2:
             return None, None
 
-        
+
         faces = get_all_faces(frame)
         if faces is not None:
             return faces, frame
         return None, frame
-      
+
 
 
 
     def process_frame(self, frame:Frame):
         if len(self.input_face_datas) < 1:
             return frame
-    
+
         temp_frame = frame.copy()
         num_swapped, temp_frame = self.swap_faces(frame, temp_frame)
         if num_swapped > 0:
@@ -299,13 +299,13 @@ class ProcessMgr():
             faces = get_all_faces(frame)
             if faces is None:
                 return num_faces_found, frame
-            
+
             if self.options.swap_mode == "all":
                 for face in faces:
                     num_faces_found += 1
                     temp_frame = self.process_face(self.options.selected_index, face, temp_frame)
                     del face
-            
+
             elif self.options.swap_mode == "selected":
                 for i,tf in enumerate(self.target_face_datas):
                     for face in faces:
@@ -349,7 +349,7 @@ class ProcessMgr():
         orig_width = fake_frame.shape[1]
         fake_frame = cv2.resize(fake_frame, (upscale, upscale), cv2.INTER_CUBIC)
         mask_offsets = inputface.mask_offsets
-        
+
         if enhanced_frame is None:
             scale_factor = int(upscale / orig_width)
             result = self.paste_upscale(fake_frame, fake_frame, target_face.matrix, frame, scale_factor, mask_offsets)
@@ -357,7 +357,7 @@ class ProcessMgr():
             result = self.paste_upscale(fake_frame, enhanced_frame, target_face.matrix, frame, scale_factor, mask_offsets)
         return result
 
-        
+
 
 
     def cutout(self, frame:Frame, start_x, start_y, end_x, end_y):
@@ -371,8 +371,8 @@ class ProcessMgr():
             end_y = frame.shape[0]
         return frame[start_y:end_y, start_x:end_x], start_x, start_y, end_x, end_y
 
-        
-    
+
+
     # Paste back adapted from here
     # https://github.com/fAIseh00d/refacer/blob/main/refacer.py
     # which is revised insightface paste back code
@@ -390,14 +390,14 @@ class ProcessMgr():
             img_matte[-mask_offsets[1]:,:] = 0
 
         ##Transform white square back to target_img
-        img_matte = cv2.warpAffine(img_matte, IM, (target_img.shape[1], target_img.shape[0]), flags=cv2.INTER_NEAREST, borderValue=0.0) 
+        img_matte = cv2.warpAffine(img_matte, IM, (target_img.shape[1], target_img.shape[0]), flags=cv2.INTER_NEAREST, borderValue=0.0)
         ##Blacken the edges of face_matte by 1 pixels (so the mask in not expanded on the image edges)
         img_matte[:1,:] = img_matte[-1:,:] = img_matte[:,:1] = img_matte[:,-1:] = 0
 
         #Detect the affine transformed white area
-        mask_h_inds, mask_w_inds = np.where(img_matte==255) 
+        mask_h_inds, mask_w_inds = np.where(img_matte==255)
         #Calculate the size (and diagonal size) of transformed white area width and height boundaries
-        mask_h = np.max(mask_h_inds) - np.min(mask_h_inds) 
+        mask_h = np.max(mask_h_inds) - np.min(mask_h_inds)
         mask_w = np.max(mask_w_inds) - np.min(mask_w_inds)
         mask_size = int(np.sqrt(mask_h*mask_w))
         #Calculate the kernel size for eroding img_matte by kernel (insightface empirical guess for best size was max(mask_size//10,10))
@@ -406,17 +406,17 @@ class ProcessMgr():
         kernel = np.ones((k,k),np.uint8)
         img_matte = cv2.erode(img_matte,kernel,iterations = 1)
         #Calculate the kernel size for blurring img_matte by blur_size (insightface empirical guess for best size was max(mask_size//20, 5))
-        # k = max(mask_size//24, 4) 
-        k = max(mask_size//20, 5) 
+        # k = max(mask_size//24, 4)
+        k = max(mask_size//20, 5)
         kernel_size = (k, k)
         blur_size = tuple(2*i+1 for i in kernel_size)
         img_matte = cv2.GaussianBlur(img_matte, blur_size, 0)
-        
+
         #Normalize images to float values and reshape
         img_matte = img_matte.astype(np.float32)/255
         face_matte = face_matte.astype(np.float32)/255
         img_matte = np.minimum(face_matte, img_matte)
-        img_matte = np.reshape(img_matte, [img_matte.shape[0],img_matte.shape[1],1]) 
+        img_matte = np.reshape(img_matte, [img_matte.shape[0],img_matte.shape[1],1])
         ##Transform upcaled face back to target_img
         paste_face = cv2.warpAffine(upsk_face, IM, (target_img.shape[1], target_img.shape[0]), borderMode=cv2.BORDER_REPLICATE)
         if upsk_face is not fake_face:
@@ -443,7 +443,7 @@ class ProcessMgr():
         result += img_mask * frame.astype(np.float32)
         return np.uint8(result)
 
-            
+
 
 
     def unload_models():

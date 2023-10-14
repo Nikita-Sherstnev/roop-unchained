@@ -37,7 +37,7 @@ class INSwapper():
 
         return pred[0].numpy()
 
-    def get(self, img, target_face, source_face, paste_back=True):
+    def get(self, img, target_face, source_face, paste_back=False):
         aimg, M = face_align.norm_crop2(img, target_face.kps, self.input_size[0])
         blob = cv2.dnn.blobFromImage(aimg, 1.0 / self.input_std, self.input_size,
                                     (self.input_mean, self.input_mean, self.input_mean), swapRB=True)

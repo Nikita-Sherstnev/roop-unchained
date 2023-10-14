@@ -54,6 +54,6 @@ class Attribute:
         assert len(pred)==3
         gender = np.argmax(pred[:2])
         age = int(np.round(pred[2]*100))
-        face['gender'] = gender
+        face['gender'] = gender.numpy()
         face['age'] = age
         return gender, age

@@ -29,7 +29,7 @@ class FaceAnalysis:
         self.models = {
             'landmark_3d_68': Landmark(osp.join(self.model_dir, '1k3d68.onnx')),
             'landmark_2d_106': Landmark(osp.join(self.model_dir, '2d106det.onnx')),
-            'detection': RetinaFace(osp.join(self.model_dir, 'det_10g.onnx')),
+            'detection': RetinaFace(osp.join(self.model_dir, 'det_10g.pt')),
             'genderage': Attribute(osp.join(self.model_dir, 'genderage.pt')),
             'recognition': ArcFace(osp.join(self.model_dir, 'w600k_r50.pt')),
         }
@@ -186,6 +186,7 @@ def extract_face_images(source_filename, video_info, extra_padding=-1.0):
 
         i += 1
         face_data.append([face, face_temp])
+
     return face_data
 
 def clamp_cut_values(startX, endX, startY, endY, image):
