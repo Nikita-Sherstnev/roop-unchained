@@ -194,7 +194,7 @@ def on_srcfile_changed(srcfiles, progress=gr.Progress()):
         source_path = f.name
         if source_path.lower().endswith('fsz'):
             progress(0, desc="Retrieving faces from Faceset File", )      
-            unzipfolder = '/temp/faceset'
+            unzipfolder = os.path.join(os.environ["TEMP"], 'faceset')
             if os.path.isdir(unzipfolder):
                 files = os.listdir(unzipfolder)
                 for file in files:

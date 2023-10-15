@@ -51,10 +51,10 @@ def on_faceset_changed(faceset, progress=gr.Progress()):
         
     if filename.lower().endswith('fsz'):
         progress(0, desc="Retrieving faces from Faceset File", )      
-        unzipfolder = '/temp/faceset'
+        unzipfolder = os.path.join(os.environ["TEMP"], 'faceset')
         if os.path.isdir(unzipfolder):
             shutil.rmtree(unzipfolder)
-        os.makedirs(unzipfolder)
+        os.makedirs(unzipfolder, True)
         util.unzip(filename, unzipfolder)
         for file in os.listdir(unzipfolder):
             if file.endswith(".png"):
