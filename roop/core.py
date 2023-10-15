@@ -116,15 +116,20 @@ def pre_check() -> bool:
         return False
 
     download_directory_path = util.resolve_relative_path('../models')
-    # util.conditional_download(download_directory_path, ['https://huggingface.co/countfloyd/deepfake/resolve/main/inswapper_128.onnx'])
-    # util.conditional_download(download_directory_path, ['https://huggingface.co/countfloyd/deepfake/resolve/main/GFPGANv1.4.onnx'])
+    util.conditional_download(download_directory_path, ['https://huggingface.co/Sherstnev/inswapper-128-torch/resolve/main/inswapper_128.pt'])
+    util.conditional_download(download_directory_path, ['https://github.com/TencentARC/GFPGAN/releases/download/v1.3.4/GFPGANv1.4.pth'])
     util.conditional_download(download_directory_path, ['https://github.com/csxmli2016/DMDNet/releases/download/v1/DMDNet.pth'])
     util.conditional_download(download_directory_path, ['https://huggingface.co/akhaliq/GPEN-BFR-512/resolve/main/GPEN-BFR-512.pth'])
+    util.conditional_download(download_directory_path, ['https://github.com/sczhou/CodeFormer/releases/download/v0.1.0/codeformer.pth'])
 
     download_directory_path = util.resolve_relative_path('../models/CLIP')
     util.conditional_download(download_directory_path, ['https://huggingface.co/countfloyd/deepfake/resolve/main/rd64-uni-refined.pth'])
-    download_directory_path = util.resolve_relative_path('../models')
-    util.conditional_download(download_directory_path, ['https://github.com/sczhou/CodeFormer/releases/download/v0.1.0/codeformer.pth'])
+    download_directory_path = util.resolve_relative_path('../models/buffalo_l')
+    util.conditional_download(download_directory_path, ['https://huggingface.co/Sherstnev/inswapper-128-torch/resolve/main/buffalo_l/1k3d68.pt'])
+    util.conditional_download(download_directory_path, ['https://huggingface.co/Sherstnev/inswapper-128-torch/resolve/main/buffalo_l/2d106det.pt'])
+    util.conditional_download(download_directory_path, ['https://huggingface.co/Sherstnev/inswapper-128-torch/resolve/main/buffalo_l/det_10g.pt'])
+    util.conditional_download(download_directory_path, ['https://huggingface.co/Sherstnev/inswapper-128-torch/resolve/main/buffalo_l/genderage.pt'])
+    util.conditional_download(download_directory_path, ['https://huggingface.co/Sherstnev/inswapper-128-torch/resolve/main/buffalo_l/w600k_r50.pt'])
 
     if not shutil.which('ffmpeg'):
        update_status('ffmpeg is not installed.')

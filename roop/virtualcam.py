@@ -70,5 +70,5 @@ def stop_virtual_cam():
     global cam_active
 
     cam_active = False
-    
+
 
