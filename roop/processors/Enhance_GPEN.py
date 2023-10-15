@@ -1,5 +1,5 @@
 from typing import Any, List, Callable
-import cv2 
+import cv2
 import numpy as np
 import onnxruntime
 import roop.globals
@@ -38,7 +38,7 @@ class Enhance_GPEN():
         temp_frame = (temp_frame - 0.5) / 0.5
         temp_frame = np.expand_dims(temp_frame, axis=0).transpose(0, 3, 1, 2)
 
-        io_binding = self.model_gpen.io_binding()           
+        io_binding = self.model_gpen.io_binding()
         io_binding.bind_cpu_input("input", temp_frame)
         io_binding.bind_output("output", self.devicename)
         self.model_gpen.run_with_iobinding(io_binding)
@@ -50,7 +50,7 @@ class Enhance_GPEN():
         result = (result + 1) / 2
         result = result.transpose(1, 2, 0) * 255.0
         result = cv2.cvtColor(result, cv2.COLOR_RGB2BGR)
-        scale_factor = int(result.shape[1] / input_size)       
+        scale_factor = int(result.shape[1] / input_size)
         return result.astype(np.uint8), scale_factor
 
 

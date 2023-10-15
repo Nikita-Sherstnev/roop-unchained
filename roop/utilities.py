@@ -71,7 +71,7 @@ def sort_rename_frames(path: str):
         of = os.path.join(path, filenames[i])
         newidx = i+1
         new_filename = os.path.join(path, f"{newidx:04d}." + roop.globals.CFG.output_image_format)
-        os.rename(of, new_filename)        
+        os.rename(of, new_filename)
 
 
 def get_temp_frame_paths(target_path: str) -> List[str]:
@@ -107,7 +107,7 @@ def get_destfilename_from_path(srcfilepath: str, destfilepath: str, extension: s
 
 def replace_template(file_path: str, index: int = 0):
     fn, ext = os.path.splitext(os.path.basename(file_path))
-    
+
     # Remove the "__temp" placeholder that was used as a temporary filename
     fn = fn.replace('__temp', '')
 
@@ -145,7 +145,7 @@ def clean_temp(target_path: str) -> None:
 def delete_temp_frames(filename: str) -> None:
     dir = os.path.dirname(os.path.dirname(filename))
     shutil.rmtree(dir)
- 
+
 
 
 
@@ -202,7 +202,7 @@ def get_device() -> str:
     if 'CoreMLExecutionProvider' == prov:
         return 'mps'
     return 'cpu'
-    
+
 
 def str_to_class(module_name, class_name):
     from importlib import import_module
@@ -280,7 +280,7 @@ def open_folder(path:str):
         #import webbrowser
         #webbrowser.open(url)
 
-    
+
 
 def create_version_html():
     python_version = ".".join([str(x) for x in sys.version_info[0:3]])
