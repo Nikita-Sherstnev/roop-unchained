@@ -24,7 +24,7 @@ class FaceSwapInsightFace():
 
 
     def Run(self, source_face: Face, target_face: Face, temp_frame: Frame) -> Frame:
-        img_fake, M = self.model_swap_insightface.get(temp_frame, target_face, source_face, paste_back=False)
+        img_fake, M = self.model_swap_insightface.get(temp_frame, target_face, source_face)
         target_face.matrix = M
         return img_fake
 
