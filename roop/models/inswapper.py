@@ -1,5 +1,3 @@
-import time
-import numpy as np
 import torch
 
 from roop.processors.frame import face_align

@@ -13,3 +13,4 @@ regex
 pyvirtualcam
 pytest
 onnx2torch
+scikit-image
