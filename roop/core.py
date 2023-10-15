@@ -104,10 +104,10 @@ def release_resources() -> None:
         process_mgr = None
 
     gc.collect()
-    # if 'CUDAExecutionProvider' in roop.globals.execution_providers and torch.cuda.is_available():
-    #     with torch.cuda.device('cuda'):
-    #         torch.cuda.empty_cache()
-    #         torch.cuda.ipc_collect()
+    if 'CUDAExecutionProvider' in roop.globals.execution_providers and torch.cuda.is_available():
+        with torch.cuda.device('cuda'):
+            torch.cuda.empty_cache()
+            torch.cuda.ipc_collect()
 
 
 def pre_check() -> bool:
