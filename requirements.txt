@@ -13,4 +13,3 @@ regex
 pyvirtualcam
 pytest
 onnx2torch
-gfpgan
