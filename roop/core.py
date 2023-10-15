@@ -12,7 +12,6 @@ from typing import List
 import platform
 import signal
 import torch
-import onnxruntime
 import pathlib
 
 from time import time
@@ -58,7 +57,7 @@ def encode_execution_providers(execution_providers: List[str]) -> List[str]:
 
 
 def decode_execution_providers(execution_providers: List[str]) -> List[str]:
-    return [provider for provider, encoded_execution_provider in zip(onnxruntime.get_available_providers(), encode_execution_providers(onnxruntime.get_available_providers()))
+    return [provider for provider, encoded_execution_provider in zip(suggest_execution_providers(), encode_execution_providers(suggest_execution_providers()))
             if any(execution_provider in encoded_execution_provider for execution_provider in execution_providers)]
 
 
@@ -69,7 +68,7 @@ def suggest_max_memory() -> int:
 
 
 def suggest_execution_providers() -> List[str]:
-    return encode_execution_providers(onnxruntime.get_available_providers())
+    return ['CUDAExecutionProvider', 'CPUExecutionProvider']
 
 
 def suggest_execution_threads() -> int:
@@ -120,7 +119,7 @@ def pre_check() -> bool:
     # util.conditional_download(download_directory_path, ['https://huggingface.co/countfloyd/deepfake/resolve/main/inswapper_128.onnx'])
     # util.conditional_download(download_directory_path, ['https://huggingface.co/countfloyd/deepfake/resolve/main/GFPGANv1.4.onnx'])
     util.conditional_download(download_directory_path, ['https://github.com/csxmli2016/DMDNet/releases/download/v1/DMDNet.pth'])
-    util.conditional_download(download_directory_path, ['https://huggingface.co/akhaliq/GPEN-BFR-512/blob/main/GPEN-BFR-512.pth'])
+    util.conditional_download(download_directory_path, ['https://huggingface.co/akhaliq/GPEN-BFR-512/resolve/main/GPEN-BFR-512.pth'])
 
     download_directory_path = util.resolve_relative_path('../models/CLIP')
     util.conditional_download(download_directory_path, ['https://huggingface.co/countfloyd/deepfake/resolve/main/rd64-uni-refined.pth'])

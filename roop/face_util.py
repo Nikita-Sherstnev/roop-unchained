@@ -24,8 +24,7 @@ class FaceAnalysis:
     def __init__(self, name, allowed_modules=None, **kwargs):
         self.models = {}
         self.model_dir = osp.join('./models', name)
-        onnx_files = glob.glob(osp.join(self.model_dir, '*.onnx'))
-        onnx_files = sorted(onnx_files)
+
         self.models = {
             'landmark_3d_68': Landmark(osp.join(self.model_dir, '1k3d68.pt')),
             'landmark_2d_106': Landmark(osp.join(self.model_dir, '2d106det.pt')),
