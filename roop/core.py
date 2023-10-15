@@ -115,17 +115,17 @@ def pre_check() -> bool:
     if sys.version_info < (3, 9):
         update_status('Python version is not supported - please upgrade to 3.9 or higher.')
         return False
-    
+
     download_directory_path = util.resolve_relative_path('../models')
-    util.conditional_download(download_directory_path, ['https://huggingface.co/countfloyd/deepfake/resolve/main/inswapper_128.onnx'])
-    util.conditional_download(download_directory_path, ['https://huggingface.co/countfloyd/deepfake/resolve/main/GFPGANv1.4.onnx'])
+    # util.conditional_download(download_directory_path, ['https://huggingface.co/countfloyd/deepfake/resolve/main/inswapper_128.onnx'])
+    # util.conditional_download(download_directory_path, ['https://huggingface.co/countfloyd/deepfake/resolve/main/GFPGANv1.4.onnx'])
     util.conditional_download(download_directory_path, ['https://github.com/csxmli2016/DMDNet/releases/download/v1/DMDNet.pth'])
-    util.conditional_download(download_directory_path, ['https://github.com/facefusion/facefusion-assets/releases/download/models/GPEN-BFR-512.onnx'])
+    util.conditional_download(download_directory_path, ['https://huggingface.co/akhaliq/GPEN-BFR-512/blob/main/GPEN-BFR-512.pth'])
 
     download_directory_path = util.resolve_relative_path('../models/CLIP')
     util.conditional_download(download_directory_path, ['https://huggingface.co/countfloyd/deepfake/resolve/main/rd64-uni-refined.pth'])
     download_directory_path = util.resolve_relative_path('../models/CodeFormer')
-    util.conditional_download(download_directory_path, ['https://huggingface.co/countfloyd/deepfake/resolve/main/CodeFormerv0.1.onnx'])
+    # util.conditional_download(download_directory_path, ['https://huggingface.co/countfloyd/deepfake/resolve/main/CodeFormerv0.1.onnx'])
 
     if not shutil.which('ffmpeg'):
        update_status('ffmpeg is not installed.')
@@ -156,7 +156,7 @@ def start() -> None:
         # roop.globals.TARGET_FACES.append(faces[roop.globals.target_face_index])
         # if 'face_enhancer' in roop.globals.frame_processors:
         #     roop.globals.selected_enhancer = 'GFPGAN'
-       
+
     batch_process(None, False, None)
 
 
@@ -164,7 +164,7 @@ def get_processing_plugins(use_clip):
     processors = "faceswap"
     if use_clip:
         processors += ",mask_clip2seg"
-    
+
     if roop.globals.selected_enhancer == 'GFPGAN':
         processors += ",gfpgan"
     elif roop.globals.selected_enhancer == 'Codeformer':
@@ -184,7 +184,7 @@ def live_swap(frame, swap_mode, use_clip, clip_text, selected_index = 0):
 
     if process_mgr is None:
         process_mgr = ProcessMgr(None)
-    
+
     options = ProcessOptions(get_processing_plugins(use_clip), roop.globals.distance_threshold, roop.globals.blend_ratio, swap_mode, selected_index, clip_text)
     process_mgr.initialize(roop.globals.INPUT_FACESETS, roop.globals.TARGET_FACES, options)
     newframe = process_mgr.process_frame(frame)
@@ -196,7 +196,7 @@ def live_swap(frame, swap_mode, use_clip, clip_text, selected_index = 0):
 def preview_mask(frame, clip_text):
     import numpy as np
     global process_mgr
-    
+
     maskimage = np.zeros((frame.shape), np.uint8)
     if process_mgr is None:
         process_mgr = ProcessMgr(None)
@@ -204,7 +204,7 @@ def preview_mask(frame, clip_text):
     process_mgr.initialize(roop.globals.INPUT_FACESETS, roop.globals.TARGET_FACES, options)
     maskprocessor = next((x for x in process_mgr.processors if x.processorname == 'clip2seg'), None)
     return process_mgr.process_mask(maskprocessor, frame, maskimage)
-    
+
 
 
 
@@ -223,7 +223,7 @@ def batch_process(files:list[ProcessEntry], use_clip, new_clip_text, use_new_met
 
     imagefiles:list[ProcessEntry] = []
     videofiles:list[ProcessEntry] = []
-           
+
     update_status('Sorting videos/images')
 
 
@@ -244,7 +244,7 @@ def batch_process(files:list[ProcessEntry], use_clip, new_clip_text, use_new_met
 
     if process_mgr is None:
         process_mgr = ProcessMgr(progress)
-    
+
     options = ProcessOptions(get_processing_plugins(use_clip), roop.globals.distance_threshold, roop.globals.blend_ratio, roop.globals.face_swap_mode, 0, new_clip_text)
     process_mgr.initialize(roop.globals.INPUT_FACESETS, roop.globals.TARGET_FACES, options)
 
@@ -289,8 +289,8 @@ def batch_process(files:list[ProcessEntry], use_clip, new_clip_text, use_new_met
                     util.open_folder(extract_path)
                     input("Press any key to continue...")
                     print("Resorting frames to create video")
-                    util.sort_rename_frames(extract_path)                                    
-                
+                    util.sort_rename_frames(extract_path)
+
                 ffmpeg.create_video(v.filename, f.finalname, fps)
                 if not roop.globals.keep_frames:
                     util.delete_temp_frames(temp_frame_paths[0])
@@ -300,11 +300,11 @@ def batch_process(files:list[ProcessEntry], use_clip, new_clip_text, use_new_met
                 else:
                     skip_audio = roop.globals.skip_audio
                 process_mgr.run_batch_inmem(v.filename, v.finalname, v.startframe, v.endframe, fps,roop.globals.execution_threads, skip_audio)
-                
+
             if not roop.globals.processing:
                 end_processing('Processing stopped!')
                 return
-            
+
             video_file_name = v.finalname
             if os.path.isfile(video_file_name):
                 destination = ''
@@ -344,7 +344,7 @@ def end_processing(msg:str):
 def destroy() -> None:
     if roop.globals.target_path:
         util.clean_temp(roop.globals.target_path)
-    release_resources()        
+    release_resources()
     sys.exit()
 
 

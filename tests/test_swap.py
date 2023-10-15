@@ -89,7 +89,8 @@ class TestSwapFace:
         assert source_similarity > target_similarity * 10
         os.remove(result)
 
-    def test_GFPGAN_enhancement(self):
+    @pytest.mark.parametrize('enhancement', ['gfpgan', 'gpen', 'codeformer', 'dmdnet'])
+    def test_enhancement(self, enhancement):
         source = 'tests/assets/ana-de-armas.jpg'
         target = 'tests/assets/wonder-woman.jpg'
         fake_frame = 'tests/assets/fake-frame.jpg'
@@ -109,7 +110,7 @@ class TestSwapFace:
         fake_frame = cv2.imread(fake_frame)
         target_img = cv2.imread(target)
 
-        options = ProcessOptions('gfpgan', roop.globals.distance_threshold,
+        options = ProcessOptions(enhancement, roop.globals.distance_threshold,
                                  roop.globals.blend_ratio, 'first', 0, None)
         self.process_mgr.initialize([face_set], [target_face], options)
 
@@ -156,6 +157,43 @@ class TestSwapFace:
                   if item.is_file()][0]
 
         swapped_face = extract_face_images(str(result), (True, 0))
+
+        source_similarity = np.dot(source_face['embedding'], swapped_face[0][0]['embedding'])
+        target_similarity = np.dot(target_face['embedding'], swapped_face[0][0]['embedding'])
+
+        assert source_similarity > target_similarity * 10
+        os.remove(result)
+
+    def test_clip_to_seg(self):
+        source = 'tests/assets/ana-de-armas.jpg'
+        target = 'tests/assets/wonder-woman.jpg'
+
+        source_face = extract_face_images(source, (False, 0))[0][0]
+        source_face.mask_offsets = (0,0)
+
+        face_set = FaceSet()
+        face_set.faces.append(source_face)
+        roop.globals.INPUT_FACESETS.append(face_set)
+
+        target_face = extract_face_images(target, (False, 0))[0][0]
+
+        roop.globals.TARGET_FACES.append(target_face)
+
+        use_clip = True
+        clip_text = 'hair'
+        processing_method = "In-Memory processing"
+
+        list_files_process: list[ProcessEntry] = []
+        list_files_process.append(ProcessEntry(target, 0,0, 0))
+
+        batch_process(list_files_process, use_clip, clip_text,
+                      processing_method == "In-Memory processing", mock_progress_gradio)
+
+        outdir = pathlib.Path(roop.globals.output_path)
+        result = [item for item in outdir.rglob(f"*{target.rsplit('/', maxsplit=1)[-1].split('.')[0]}*") \
+                  if item.is_file()][0]
+
+        swapped_face = extract_face_images(str(result), (False, 0))
 
         source_similarity = np.dot(source_face['embedding'], swapped_face[0][0]['embedding'])
         target_similarity = np.dot(target_face['embedding'], swapped_face[0][0]['embedding'])

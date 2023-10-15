@@ -18,7 +18,6 @@ def get_object(name):
         return None
     with open(filepath, 'rb') as f:
         obj = pickle.load(f)
-    print(obj.shape)
     return obj
 
 

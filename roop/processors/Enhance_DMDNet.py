@@ -1,5 +1,5 @@
 from typing import Any, List, Callable
-import cv2 
+import cv2
 import numpy as np
 import torch
 import torch.nn as nn
@@ -30,14 +30,14 @@ class Enhance_DMDNet():
     def Initialize(self, devicename):
         if self.model_dmdnet is None:
             self.model_dmdnet = self.create(devicename)
-            
+
 
     # temp_frame already cropped+aligned, bbox not
     def Run(self, source_faceset: FaceSet, target_face: Face, temp_frame: Frame) -> Frame:
         input_size = temp_frame.shape[1]
 
         result = self.enhance_face(source_faceset, temp_frame, target_face)
-        scale_factor = int(result.shape[1] / input_size)       
+        scale_factor = int(result.shape[1] / input_size)
         return result.astype(np.uint8), scale_factor
 
 
@@ -55,14 +55,14 @@ class Enhance_DMDNet():
                         89,95,96,93,91,90,
                         52,64,63,71,67,68,61,58,59,53,56,55,65,66,62,70,69,57,60,54
                         ]
-      
+
         pt68 = []
         for i in range(68):
             index = map106to68[i]
             pt68.append(pt106[index])
         return pt68
 
-        
+
 
 
     def check_bbox(self, imgs, boxes):
@@ -163,11 +163,12 @@ class Enhance_DMDNet():
         with torch.no_grad():
             with THREAD_LOCK_DMDNET:
                 try:
-                    GenericResult, SpecificResult = self.model_dmdnet(lq = lq.to(self.torchdevice), loc = LQLocs.unsqueeze(0), sp_256 = SpMem256Para, sp_128 = SpMem128Para, sp_64 = SpMem64Para)
+                    GenericResult, SpecificResult = self.model_dmdnet(lq = lq.to(self.torchdevice),
+                    loc = LQLocs.unsqueeze(0), sp_256 = SpMem256Para, sp_128 = SpMem128Para, sp_64 = SpMem64Para)
                 except Exception as e:
                     print(f'Error {e} there may be something wrong with the detected component locations.')
                     return temp_frame
-        
+
         if SpecificResult is not None:
             save_specific = SpecificResult * 0.5 + 0.5
             save_specific = save_specific.squeeze(0).permute(1, 2, 0).flip(2) # RGB->BGR
@@ -189,12 +190,12 @@ class Enhance_DMDNet():
         temp_frame = cv2.cvtColor(temp_frame, cv2.COLOR_RGB2BGR)  # RGB
         return temp_frame
 
-    
+
 
     def create(self, devicename):
         self.torchdevice = torch.device(devicename)
         model_dmdnet = DMDNet().to(self.torchdevice)
-        weights = torch.load('./models/DMDNet.pth') 
+        weights = torch.load('./models/DMDNet.pth')
         model_dmdnet.load_state_dict(weights, strict=True)
 
         model_dmdnet.eval()
@@ -208,7 +209,7 @@ class Enhance_DMDNet():
 
 
 
-def read_img_tensor(Img=None): #rgb -1~1 
+def read_img_tensor(Img=None): #rgb -1~1
     Img = Img.transpose((2, 0, 1))/255.0
     Img = torch.from_numpy(Img).float()
     normalize(Img, [0.5,0.5,0.5], [0.5,0.5,0.5], inplace=True)
@@ -234,7 +235,7 @@ def get_component_location(Landmarks, re_read=False):
 
     Landmarks[Landmarks>504]=504
     Landmarks[Landmarks<8]=8
-    
+
     #left eye
     Mean_LE = np.mean(Landmarks[Map_LE],0)
     L_LE1 = Mean_LE[1] - np.min(Landmarks[Map_LE_B,1])
@@ -263,7 +264,7 @@ def get_component_location(Landmarks, re_read=False):
     L_NO_lt = [L_NO_xy/2, L_NO_xy - L_NO2]
     L_NO_rb = [L_NO_xy/2, L_NO2]
     Location_NO = np.hstack((Mean_NO - L_NO_lt + 1, Mean_NO + L_NO_rb)).astype(int)
-    
+
     #mouth
     Mean_MO = np.mean(Landmarks[Map_MO],0)
     L_MO = np.max((np.max(np.max(Landmarks[Map_MO],0) - np.min(Landmarks[Map_MO],0))/2,16)) * 1.1
@@ -300,7 +301,7 @@ def convU(in_channels, out_channels,conv_layer, norm_layer, kernel_size=3, strid
         nn.LeakyReLU(0.2),
         SpectralNorm(conv_layer(out_channels, out_channels, kernel_size=kernel_size, stride=stride, dilation=dilation, padding=((kernel_size-1)//2)*dilation, bias=bias)),
     )
-    
+
 
 class MSDilateBlock(nn.Module):
     def __init__(self, in_channels,conv_layer=nn.Conv2d, norm_layer=nn.BatchNorm2d, kernel_size=3, dilation=[1,1,1,1], bias=True):
@@ -380,7 +381,7 @@ class StyledUpBlock(nn.Module):
             nn.LeakyReLU(0.2),
             SpectralNorm(nn.Conv2d(out_channel, out_channel, 3, 1, 1)),
         )
-       
+
     def forward(self, input, style):
         out = self.conv1(input)
         out = self.lrelu1(out)
@@ -429,7 +430,7 @@ class KeyValue(nn.Module):
             nn.LeakyReLU(0.2),
             SpectralNorm(nn.Conv2d(valdim, valdim, kernel_size=(3,3), padding=(1,1), stride=1)),
         )
-    def forward(self, x):  
+    def forward(self, x):
         return self.Key(x), self.Value(x)
 
 class MaskAttention(nn.Module):
@@ -481,7 +482,7 @@ class FeatureExtractor(nn.Module):
 
         self.key_scale = 4
         self.part_sizes = np.array([80,80,50,110]) #
-        self.feature_sizes = np.array([256,128,64]) # 
+        self.feature_sizes = np.array([256,128,64]) #
 
         self.conv1 = nn.Sequential(
                 SpectralNorm(nn.Conv2d(3, ngf, 3, 2, 1)),
@@ -496,7 +497,7 @@ class FeatureExtractor(nn.Module):
         self.res1 = DilateResBlock(ngf, [5,3])
         self.res2 = DilateResBlock(ngf, [5,3])
 
-        
+
         self.conv3 = nn.Sequential(
             SpectralNorm(nn.Conv2d(ngf, ngf*2, 3, 2, 1)),
             nn.LeakyReLU(0.2),
@@ -539,19 +540,19 @@ class FeatureExtractor(nn.Module):
         re_location = locs[:,1,:].int().cpu().numpy()
         no_location = locs[:,2,:].int().cpu().numpy()
         mo_location = locs[:,3,:].int().cpu().numpy()
-        
 
-        f1_0 = self.conv1(img) 
+
+        f1_0 = self.conv1(img)
         f1_1 = self.res1(f1_0)
         f2_0 = self.conv2(f1_1)
         f2_1 = self.res2(f2_0)
 
-        f3_0 = self.conv3(f2_1) 
+        f3_0 = self.conv3(f2_1)
         f3_1 = self.res3(f3_0)
         f4_0 = self.conv4(f3_1)
         f4_1 = self.res4(f4_0)
 
-        f5_0 = self.conv5(f4_1) 
+        f5_0 = self.conv5(f4_1)
         f5_1 = self.res5(f5_0)
         f6_0 = self.conv6(f5_1)
         f6_1 = self.res6(f6_0)
@@ -646,7 +647,7 @@ class DMDNet(nn.Module):
         self.up1 = StyledUpBlock(ngf*4, ngf*2, noise_inject=False) #
         self.up2 = StyledUpBlock(ngf*2, ngf, noise_inject=False) #
         self.up3 = StyledUpBlock(ngf, ngf, noise_inject=False) #
-        self.up4 = nn.Sequential( 
+        self.up4 = nn.Sequential(
             SpectralNorm(nn.Conv2d(ngf, ngf, 3, 1, 1)),
             nn.LeakyReLU(0.2),
             UpResBlock(ngf),
@@ -654,7 +655,7 @@ class DMDNet(nn.Module):
             SpectralNorm(nn.Conv2d(ngf, 3, kernel_size=3, stride=1, padding=1)),
             nn.Tanh()
         )
- 
+
         # define generic memory, revise register_buffer to register_parameter for backward update
         self.register_buffer('le_256_mem_key', torch.randn(128,16,40,40))
         self.register_buffer('re_256_mem_key', torch.randn(128,16,40,40))
@@ -662,7 +663,7 @@ class DMDNet(nn.Module):
         self.register_buffer('le_256_mem_value', torch.randn(128,64,40,40))
         self.register_buffer('re_256_mem_value', torch.randn(128,64,40,40))
         self.register_buffer('mo_256_mem_value', torch.randn(128,64,55,55))
-        
+
 
         self.register_buffer('le_128_mem_key', torch.randn(128,32,20,20))
         self.register_buffer('re_128_mem_key', torch.randn(128,32,20,20))
@@ -678,7 +679,7 @@ class DMDNet(nn.Module):
         self.register_buffer('re_64_mem_value', torch.randn(128,256,10,10))
         self.register_buffer('mo_64_mem_value', torch.randn(128,256,13,13))
 
-    
+
     def readMem(self, k, v, q):
         sim = F.conv2d(q, k)
         score = F.softmax(sim/sqrt(sim.size(1)), dim=1) #B * S * 1 * 1 6*128
@@ -689,7 +690,7 @@ class DMDNet(nn.Module):
         mem_out = torch.bmm(s_m, v_in).squeeze(1).view(sb, vn, vw,vh)
         max_inds = torch.argmax(score, dim=1).squeeze()
         return mem_out, max_inds
-    
+
 
     def memorize(self, img, locs):
         fs = self.E_hq(img, locs)
@@ -708,11 +709,11 @@ class DMDNet(nn.Module):
         Mem256 = {'LE256Key': LE256_key, 'LE256Value': LE256_value, 'RE256Key': RE256_key, 'RE256Value': RE256_value,'MO256Key': MO256_key, 'MO256Value': MO256_value}
         Mem128 = {'LE128Key': LE128_key, 'LE128Value': LE128_value, 'RE128Key': RE128_key, 'RE128Value': RE128_value,'MO128Key': MO128_key, 'MO128Value': MO128_value}
         Mem64 = {'LE64Key': LE64_key, 'LE64Value': LE64_value, 'RE64Key': RE64_key, 'RE64Value': RE64_value,'MO64Key': MO64_key, 'MO64Value': MO64_value}
- 
+
         FS256 = {'LE256F':fs['le256'], 'RE256F':fs['re256'], 'MO256F':fs['mo256']}
         FS128 = {'LE128F':fs['le128'], 'RE128F':fs['re128'], 'MO128F':fs['mo128']}
         FS64 = {'LE64F':fs['le64'], 'RE64F':fs['re64'], 'MO64F':fs['mo64']}
-        
+
         return Mem256, Mem128, Mem64
 
     def enhancer(self, fs_in, sp_256=None, sp_128=None, sp_64=None):
@@ -728,7 +729,7 @@ class DMDNet(nn.Module):
         re_64_q = fs_in['re_64_q']
         mo_64_q = fs_in['mo_64_q']
 
-        
+
         ####for 256
         le_256_mem_g, le_256_inds = self.readMem(self.le_256_mem_key, self.le_256_mem_value, le_256_q)
         re_256_mem_g, re_256_inds = self.readMem(self.re_256_mem_key, self.re_256_mem_value, re_256_q)
@@ -786,17 +787,17 @@ class DMDNet(nn.Module):
         le_256_mem_norm = adaptive_instance_normalization_4D(le_256_mem, fs_in['le256'])
         re_256_mem_norm = adaptive_instance_normalization_4D(re_256_mem, fs_in['re256'])
         mo_256_mem_norm = adaptive_instance_normalization_4D(mo_256_mem, fs_in['mo256'])
-        
+
         ####for 128
         le_128_mem_norm = adaptive_instance_normalization_4D(le_128_mem, fs_in['le128'])
         re_128_mem_norm = adaptive_instance_normalization_4D(re_128_mem, fs_in['re128'])
         mo_128_mem_norm = adaptive_instance_normalization_4D(mo_128_mem, fs_in['mo128'])
-        
+
         ####for 64
         le_64_mem_norm = adaptive_instance_normalization_4D(le_64_mem, fs_in['le64'])
         re_64_mem_norm = adaptive_instance_normalization_4D(re_64_mem, fs_in['re64'])
         mo_64_mem_norm = adaptive_instance_normalization_4D(mo_64_mem, fs_in['mo64'])
-    
+
 
         EnMem256 = {'LE256Norm': le_256_mem_norm, 'RE256Norm': re_256_mem_norm, 'MO256Norm': mo_256_mem_norm}
         EnMem128 = {'LE128Norm': le_128_mem_norm, 'RE128Norm': re_128_mem_norm, 'MO128Norm': mo_128_mem_norm}
@@ -814,11 +815,11 @@ class DMDNet(nn.Module):
         le_256_final = self.LE_256_Attention(le_256_mem_norm - fs_in['le256']) * le_256_mem_norm + fs_in['le256']
         re_256_final = self.RE_256_Attention(re_256_mem_norm - fs_in['re256']) * re_256_mem_norm + fs_in['re256']
         mo_256_final = self.MO_256_Attention(mo_256_mem_norm - fs_in['mo256']) * mo_256_mem_norm + fs_in['mo256']
-        
+
         le_128_final = self.LE_128_Attention(le_128_mem_norm - fs_in['le128']) * le_128_mem_norm + fs_in['le128']
         re_128_final = self.RE_128_Attention(re_128_mem_norm - fs_in['re128']) * re_128_mem_norm + fs_in['re128']
         mo_128_final = self.MO_128_Attention(mo_128_mem_norm - fs_in['mo128']) * mo_128_mem_norm + fs_in['mo128']
-        
+
         le_64_final = self.LE_64_Attention(le_64_mem_norm - fs_in['le64']) * le_64_mem_norm + fs_in['le64']
         re_64_final = self.RE_64_Attention(re_64_mem_norm - fs_in['re64']) * re_64_mem_norm + fs_in['re64']
         mo_64_final = self.MO_64_Attention(mo_64_mem_norm - fs_in['mo64']) * mo_64_mem_norm + fs_in['mo64']
@@ -839,7 +840,7 @@ class DMDNet(nn.Module):
             up_in_256[i:i+1,:,le_location[i,1]//2:le_location[i,3]//2,le_location[i,0]//2:le_location[i,2]//2] = F.interpolate(le_256_final[i:i+1,:,:,:].clone(), (le_location[i,3]//2-le_location[i,1]//2,le_location[i,2]//2-le_location[i,0]//2),mode='bilinear',align_corners=False)
             up_in_256[i:i+1,:,re_location[i,1]//2:re_location[i,3]//2,re_location[i,0]//2:re_location[i,2]//2] = F.interpolate(re_256_final[i:i+1,:,:,:].clone(), (re_location[i,3]//2-re_location[i,1]//2,re_location[i,2]//2-re_location[i,0]//2),mode='bilinear',align_corners=False)
             up_in_256[i:i+1,:,mo_location[i,1]//2:mo_location[i,3]//2,mo_location[i,0]//2:mo_location[i,2]//2] = F.interpolate(mo_256_final[i:i+1,:,:,:].clone(), (mo_location[i,3]//2-mo_location[i,1]//2,mo_location[i,2]//2-mo_location[i,0]//2),mode='bilinear',align_corners=False)
-            
+
             up_in_128[i:i+1,:,le_location[i,1]//4:le_location[i,3]//4,le_location[i,0]//4:le_location[i,2]//4] = F.interpolate(le_128_final[i:i+1,:,:,:].clone(), (le_location[i,3]//4-le_location[i,1]//4,le_location[i,2]//4-le_location[i,0]//4),mode='bilinear',align_corners=False)
             up_in_128[i:i+1,:,re_location[i,1]//4:re_location[i,3]//4,re_location[i,0]//4:re_location[i,2]//4] = F.interpolate(re_128_final[i:i+1,:,:,:].clone(), (re_location[i,3]//4-re_location[i,1]//4,re_location[i,2]//4-re_location[i,0]//4),mode='bilinear',align_corners=False)
             up_in_128[i:i+1,:,mo_location[i,1]//4:mo_location[i,3]//4,mo_location[i,0]//4:mo_location[i,2]//4] = F.interpolate(mo_128_final[i:i+1,:,:,:].clone(), (mo_location[i,3]//4-mo_location[i,1]//4,mo_location[i,2]//4-mo_location[i,0]//4),mode='bilinear',align_corners=False)
@@ -847,7 +848,7 @@ class DMDNet(nn.Module):
             up_in_64[i:i+1,:,le_location[i,1]//8:le_location[i,3]//8,le_location[i,0]//8:le_location[i,2]//8] = F.interpolate(le_64_final[i:i+1,:,:,:].clone(), (le_location[i,3]//8-le_location[i,1]//8,le_location[i,2]//8-le_location[i,0]//8),mode='bilinear',align_corners=False)
             up_in_64[i:i+1,:,re_location[i,1]//8:re_location[i,3]//8,re_location[i,0]//8:re_location[i,2]//8] = F.interpolate(re_64_final[i:i+1,:,:,:].clone(), (re_location[i,3]//8-re_location[i,1]//8,re_location[i,2]//8-re_location[i,0]//8),mode='bilinear',align_corners=False)
             up_in_64[i:i+1,:,mo_location[i,1]//8:mo_location[i,3]//8,mo_location[i,0]//8:mo_location[i,2]//8] = F.interpolate(mo_64_final[i:i+1,:,:,:].clone(), (mo_location[i,3]//8-mo_location[i,1]//8,mo_location[i,2]//8-mo_location[i,0]//8),mode='bilinear',align_corners=False)
-        
+
         ms_in_64 = self.MSDilate(fs_in['f64'].clone())
         fea_up1 = self.up1(ms_in_64, up_in_64)
         fea_up2 = self.up2(fea_up1, up_in_128) #
