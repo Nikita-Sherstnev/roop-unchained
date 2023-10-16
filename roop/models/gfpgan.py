@@ -771,11 +771,12 @@ class GFPGANer():
 
         try:
             output = self.gfpgan(cropped_face_t, return_rgb=False, weight=weight)[0]
-            restored_face = tensor2img(output.squeeze(0), rgb2bgr=True, min_max=(-1, 1))
+            min_max = (-1, 1)
+            output[0] = (output[0] - min_max[0]) / (min_max[1] - min_max[0])
+            restored_face = (output[0].permute(1, 2, 0) * 255.0).flip(2).byte().cpu().numpy()
+
         except RuntimeError as error:
             print(f'\tFailed inference for GFPGAN: {error}.')
-            restored_face = cropped_face
-
-        restored_face = restored_face.astype('uint8')
+            restored_face = cropped_face_t
 
         return restored_face

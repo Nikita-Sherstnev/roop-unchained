@@ -39,7 +39,7 @@ class Enhance_GFPGAN():
         result = self.model_gfpgan.enhance(cropped_face)
 
         scale_factor = int(result.shape[1] / input_size)
-        return result.astype(np.uint8), scale_factor
+        return result, scale_factor
 
 
     def Release(self):
