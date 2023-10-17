@@ -1,19 +1,23 @@
 import os
-import cv2
-import numpy as np
 import psutil
-
-from roop.ProcessOptions import ProcessOptions
-
-from roop.face_util import get_first_face, get_all_faces, rotate_image_180
-from roop.utilities import compute_cosine_distance, get_device, str_to_class
-
 from typing import Any, List, Callable
-from roop.typing import Frame
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Thread, Lock
 from queue import Queue
+
+import cv2
+import numpy as np
+import torch
+import torch.nn.functional as F
 from tqdm import tqdm
+import kornia
+from kornia.geometry.transform import warp_affine
+from kornia.morphology import erosion
+
+from roop.ProcessOptions import ProcessOptions
+from roop.face_util import get_first_face, get_all_faces, rotate_image_180
+from roop.utilities import compute_cosine_distance, get_device, str_to_class
+from roop.typing import Frame
 from roop.ffmpeg_writer import FFMPEG_VideoWriter
 import roop.globals
 
@@ -371,31 +375,42 @@ class ProcessMgr():
             end_y = frame.shape[0]
         return frame[start_y:end_y, start_x:end_x], start_x, start_y, end_x, end_y
 
-
-
     # Paste back adapted from here
     # https://github.com/fAIseh00d/refacer/blob/main/refacer.py
     # which is revised insightface paste back code
 
     def paste_upscale(self, fake_face, upsk_face, M, target_img, scale_factor, mask_offsets):
         M_scale = M * scale_factor
-        IM = cv2.invertAffineTransform(M_scale)
+        M_scale = torch.tensor(M_scale)
+        M_scale = torch.cat((M_scale, torch.tensor([[0.0, 0.0, 1.0]])), dim=0)
+        IM = torch.inverse(M_scale)
+        IM = IM[0:2, :]
 
-        face_matte = np.full((target_img.shape[0],target_img.shape[1]), 255, dtype=np.uint8)
-        ##Generate white square sized as a upsk_face
-        img_matte = np.full((upsk_face.shape[0],upsk_face.shape[1]), 255, dtype=np.uint8)
+        target_height, target_width = target_img.shape[0], target_img.shape[1]
+
+        face_matte = torch.full((1, 1, target_height, target_width), 255, dtype=torch.uint8)
+        # ##Generate white square sized as a upsk_face
+        img_matte = torch.full((1, 1, upsk_face.shape[0], upsk_face.shape[1]), 255, dtype=torch.uint8)
+
         if mask_offsets[0] > 0:
-            img_matte[:mask_offsets[0],:] = 0
+            img_matte[:, :, :mask_offsets[0], :] = 0
         if mask_offsets[1] > 0:
-            img_matte[-mask_offsets[1]:,:] = 0
+            img_matte[:, :, -mask_offsets[1]:, :] = 0
 
-        ##Transform white square back to target_img
-        img_matte = cv2.warpAffine(img_matte, IM, (target_img.shape[1], target_img.shape[0]), flags=cv2.INTER_NEAREST, borderValue=0.0)
-        ##Blacken the edges of face_matte by 1 pixels (so the mask in not expanded on the image edges)
-        img_matte[:1,:] = img_matte[-1:,:] = img_matte[:,:1] = img_matte[:,-1:] = 0
+        target_img = torch.tensor(target_img).permute(2,0,1).unsqueeze(0)
+
+        # Transform white square back to target_img
+        img_matte = warp_affine((img_matte / 255).float(), IM.unsqueeze(0).float(),
+                                (target_img.shape[2], target_img.shape[3]), mode='nearest')
+        img_matte = (img_matte * 255).byte()
+        # Blacken the edges of face_matte by 1 pixels (so the mask in not expanded on the image edges)
+        img_matte[:, :, :1, :] = 0
+        img_matte[:, :, -1:, :] = 0
+        img_matte[:, :, :, :1] = 0
+        img_matte[:, :, :, -1:] = 0
 
         #Detect the affine transformed white area
-        mask_h_inds, mask_w_inds = np.where(img_matte==255)
+        mask_h_inds, mask_w_inds = np.where(img_matte[0][0]==255)
         #Calculate the size (and diagonal size) of transformed white area width and height boundaries
         mask_h = np.max(mask_h_inds) - np.min(mask_h_inds)
         mask_w = np.max(mask_w_inds) - np.min(mask_w_inds)
@@ -404,33 +419,49 @@ class ProcessMgr():
         # k = max(mask_size//12, 8)
         k = max(mask_size//10, 10)
         kernel = np.ones((k,k),np.uint8)
-        img_matte = cv2.erode(img_matte,kernel,iterations = 1)
+
+        img_matte = erosion(img_matte.float(), torch.tensor(kernel).float())
+
         #Calculate the kernel size for blurring img_matte by blur_size (insightface empirical guess for best size was max(mask_size//20, 5))
         # k = max(mask_size//24, 4)
-        k = max(mask_size//20, 5)
+        k = max(mask_size // 20, 5)
         kernel_size = (k, k)
-        blur_size = tuple(2*i+1 for i in kernel_size)
-        img_matte = cv2.GaussianBlur(img_matte, blur_size, 0)
+        blur_size = tuple(2 * i + 1 for i in kernel_size)
+
+        # blur the image
+        # img_matte = kornia.filters.gaussian_blur2d(img_matte, blur_size, (0,0))
 
         #Normalize images to float values and reshape
-        img_matte = img_matte.astype(np.float32)/255
-        face_matte = face_matte.astype(np.float32)/255
+        img_matte = (img_matte/255).float()
+        face_matte = (face_matte/255).float()
+
         img_matte = np.minimum(face_matte, img_matte)
-        img_matte = np.reshape(img_matte, [img_matte.shape[0],img_matte.shape[1],1])
+        img_matte = np.reshape(img_matte, [img_matte.shape[2], img_matte.shape[3], 1])
+
         ##Transform upcaled face back to target_img
-        paste_face = cv2.warpAffine(upsk_face, IM, (target_img.shape[1], target_img.shape[0]), borderMode=cv2.BORDER_REPLICATE)
+
+        upsk_face = torch.tensor(upsk_face).permute(2,0,1).unsqueeze(0)
+        paste_face = warp_affine((upsk_face / 255).float(), IM.unsqueeze(0).float(),
+                                (target_img.shape[2], target_img.shape[3]))
+
+        fake_face = torch.tensor(fake_face).permute(2,0,1).unsqueeze(0)
         if upsk_face is not fake_face:
-            fake_face = cv2.warpAffine(fake_face, IM, (target_img.shape[1], target_img.shape[0]), borderMode=cv2.BORDER_REPLICATE)
-            paste_face = cv2.addWeighted(paste_face, self.options.blend_ratio, fake_face, 1.0 - self.options.blend_ratio, 0)
+            fake_face = warp_affine((fake_face / 255).float(), IM.unsqueeze(0).float(),
+                                (target_img.shape[2], target_img.shape[3]))
+            paste_face = kornia.enhance.add_weighted(paste_face, self.options.blend_ratio,
+                                fake_face, 1.0 - self.options.blend_ratio, 0)
+
+        paste_face = paste_face[0].permute(1,2,0)
+        target_img = target_img.squeeze(0).permute(1,2,0)
 
         ##Re-assemble image
+
+        target_img = (target_img / 255).float()
         paste_face = img_matte * paste_face
-        paste_face = paste_face + (1-img_matte) * target_img.astype(np.float32)
-        del img_matte
-        del face_matte
-        del upsk_face
-        del fake_face
-        return paste_face.astype(np.uint8)
+        paste_face = paste_face + (1.0 - img_matte) * target_img
+        paste_face = (paste_face * 255).byte()
+
+        return paste_face.numpy()
 
 
     def process_mask(self, processor, frame:Frame, target:Frame):
