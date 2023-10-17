@@ -40,6 +40,4 @@ class INSwapper():
         with torch.inference_mode():
             pred = self.model(blob, latent)
 
-            img_fake = (pred[0].permute(1, 2, 0) * 255.0).byte()[:, :,[2, 1, 0]].cpu().numpy()
-
-            return img_fake, M
+            return pred, M

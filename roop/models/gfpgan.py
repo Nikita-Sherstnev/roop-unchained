@@ -765,15 +765,13 @@ class GFPGANer():
 
     @torch.no_grad()
     def enhance(self, img, has_aligned=False, only_center_face=False, weight=0.5):
-        cropped_face_t = img2tensor(img / 255., bgr2rgb=True, float32=True)
-        normalize(cropped_face_t, (0.5, 0.5, 0.5), (0.5, 0.5, 0.5), inplace=True)
-        cropped_face_t = cropped_face_t.unsqueeze(0).to(self.device)
+        normalize(img, (0.5, 0.5, 0.5), (0.5, 0.5, 0.5), inplace=True)
 
         try:
-            output = self.gfpgan(cropped_face_t, return_rgb=False, weight=weight)[0]
+            output = self.gfpgan(img, return_rgb=False, weight=weight)[0]
             min_max = (-1, 1)
             output[0] = (output[0] - min_max[0]) / (min_max[1] - min_max[0])
-            restored_face = (output[0].permute(1, 2, 0) * 255.0).flip(2).byte().cpu().numpy()
+            restored_face = (output[0].permute(1, 2, 0) * 255.0).flip(2).byte()
 
         except RuntimeError as error:
             print(f'\tFailed inference for GFPGAN: {error}.')

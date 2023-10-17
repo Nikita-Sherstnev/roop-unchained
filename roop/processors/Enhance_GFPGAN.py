@@ -3,6 +3,7 @@ import cv2
 import numpy as np
 import roop.globals
 import torch
+import torch.nn.functional as F
 
 from roop.typing import Face, Frame, FaceSet
 from roop.utilities import resolve_relative_path
@@ -33,9 +34,10 @@ class Enhance_GFPGAN():
         self.name = 'input'
 
     def Run(self, source_faceset: FaceSet, target_face: Face, temp_frame: Frame) -> Frame:
-        input_size = temp_frame.shape[1]
+        input_size = temp_frame.shape[2]
 
-        cropped_face = cv2.resize(temp_frame, (512, 512), interpolation=cv2.INTER_LINEAR)
+        cropped_face = F.interpolate(temp_frame, size=512, mode='bilinear', align_corners=False)
+
         result = self.model_gfpgan.enhance(cropped_face)
 
         scale_factor = int(result.shape[1] / input_size)

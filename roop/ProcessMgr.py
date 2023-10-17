@@ -346,6 +346,7 @@ class ProcessMgr():
                 enhanced_frame, scale_factor = p.Run(self.input_face_datas[face_index], target_face, fake_frame)
 
         upscale = 512
+        fake_frame = (fake_frame[0].permute(1, 2, 0) * 255.0).byte().flip(2).cpu().numpy()
         orig_width = fake_frame.shape[1]
         fake_frame = cv2.resize(fake_frame, (upscale, upscale), cv2.INTER_CUBIC)
         mask_offsets = inputface.mask_offsets
@@ -354,10 +355,9 @@ class ProcessMgr():
             scale_factor = int(upscale / orig_width)
             result = self.paste_upscale(fake_frame, fake_frame, target_face.matrix, frame, scale_factor, mask_offsets)
         else:
+            enhanced_frame = enhanced_frame.cpu().numpy()
             result = self.paste_upscale(fake_frame, enhanced_frame, target_face.matrix, frame, scale_factor, mask_offsets)
         return result
-
-
 
 
     def cutout(self, frame:Frame, start_x, start_y, end_x, end_y):
