@@ -54,7 +54,7 @@ def on_faceset_changed(faceset, progress=gr.Progress()):
         unzipfolder = os.path.join(os.environ["TEMP"], 'faceset')
         if os.path.isdir(unzipfolder):
             shutil.rmtree(unzipfolder)
-        os.makedirs(unzipfolder, True)
+        util.mkdir_with_umask(unzipfolder)
         util.unzip(filename, unzipfolder)
         for file in os.listdir(unzipfolder):
             if file.endswith(".png"):

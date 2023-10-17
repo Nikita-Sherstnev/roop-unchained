@@ -1,6 +1,6 @@
 # roop-unleashed
 
-[Changelog](#changelog) • [Installation](#installation) • [Usage](#usage) • [Example](#example) • [FAQ](#faq)
+[Changelog](#changelog) • [Usage](#usage) • [Wiki](https://github.com/C0untFloyd/roop-unleashed/wiki)
 
 
 Uncensored Deepfakes for images and videos without training and an easy-to-use GUI.
@@ -35,25 +35,8 @@ In the event of violation of the legal and ethical requirements of the user's co
 
 ### Installation
 
-> For Windows, you need to download and install [Visual Studio](https://visualstudio.microsoft.com/de/downloads/) (in theory build-tools might work too but in my experience so far they don't). During the install, make sure to include the C++ package.
+Please refer to the Wiki.
 
-Besides that, just use the 1-click installer in releases. This will download and install everything
-in a handy conda environment. This not only installs the application but also runs it, once installed.
-
-For other OS or if you know what you're doing:
-
-- `git clone https://github.com/C0untFloyd/roop-unleashed`
-- preferably create a venv or conda environment
-- `cd roop-unleashed`
-- `pip install -r requirements.txt`
-
-Depending on your available GPU there are additional packages you need to install. Here are the instructions from the original roop page:
-
-[Using GPU Acceleration](https://github.com/s0md3v/roop/wiki/2.-Acceleration)
-
-The used GPU Provider is configured in the settings tab, no need to use cmdline arguments any more. Default is CUDA (for NVIDIA). If you change it, please restart roop-unleashed completely to allow for model reloading.
-
-For Video face-swapping you also need to have ffmpeg properly installed (having it in your PATH Env). The windows installer tries to do this automatically.  
 
 
 
@@ -72,13 +55,11 @@ Additional commandline arguments are currently unsupported and settings should b
 > Note: When you run this program for the first time, it will download some models roughly ~2Gb in size.
 
 
-### Example
-
-*Coming soon*
-
 
 
 ### Changelog
+
+**16.10.2023** v3.3.4
 
 **11.8.2023** v2.7.0
 

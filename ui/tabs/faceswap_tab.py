@@ -201,6 +201,7 @@ def on_srcfile_changed(srcfiles, progress=gr.Progress()):
                     os.remove(os.path.join(unzipfolder, file))
             else:
                 os.makedirs(unzipfolder)
+            util.mkdir_with_umask(unzipfolder)
             util.unzip(source_path, unzipfolder)
             is_first = True
             face_set = FaceSet()
