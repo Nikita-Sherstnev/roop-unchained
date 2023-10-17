@@ -843,13 +843,13 @@ class FaceGAN:
         self.model.eval()
 
     def process(self, img):
-        # img = cv2.resize(img, (self.in_resolution, self.in_resolution))
-        # img_t = self.img2tensor(img)
+        img = (img - 0.5) / 0.5
 
         with torch.no_grad():
             out, __ = self.model(img)
+
+        out[0] = out[0] * 0.5 + 0.5
         out = (out[0].permute(1, 2, 0) * 255.0).flip(2).byte()
-        # out = self.tensor2img(out)
 
         return out
 
