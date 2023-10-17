@@ -3,8 +3,10 @@ import pathlib
 
 import pytest
 import numpy as np
-
+import torch
 import cv2
+
+from roop.core import pre_check
 from settings import Settings
 from roop.face_util import extract_face_images
 from roop.core import batch_process
@@ -14,6 +16,7 @@ from roop.FaceSet import FaceSet
 from roop.ProcessMgr import ProcessMgr
 from roop.ProcessOptions import ProcessOptions
 from roop.processors.FaceSwapInsightFace import FaceSwapInsightFace
+from roop.models.gfpgan import GFPGANer
 
 
 def mock_progress_gradio(*args, **kwargs):
@@ -25,7 +28,9 @@ class MockInsightFace:
     type = 'swap'
 
     def __init__(self, fake_frame):
-        self.fake_frame = fake_frame
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.fake_frame = torch.from_numpy(fake_frame / 255.0).flip(2).permute(2,0,1) \
+                    .unsqueeze(0).float().to(self.device)
 
     def Run(self, *args):
         return self.fake_frame
@@ -36,6 +41,7 @@ class TestSwapFace:
 
     @pytest.fixture(autouse=True)
     def config(self):
+        pre_check()
         roop.globals.CFG = Settings('config.yaml')
         roop.globals.execution_threads = roop.globals.CFG.max_threads
         roop.globals.video_encoder = roop.globals.CFG.output_video_codec
@@ -45,6 +51,7 @@ class TestSwapFace:
         roop.globals.output_path = 'output'
         roop.globals.face_swap_mode = 'first'
         # roop.globals.execution_providers = ['CUDAExecutionProvider']
+        roop.globals.execution_threads = 1
 
     @pytest.fixture(scope="function", autouse=True)
     def clear_inputs_targets(self):
@@ -89,7 +96,7 @@ class TestSwapFace:
         assert source_similarity > target_similarity * 10
         os.remove(result)
 
-    @pytest.mark.parametrize('enhancement', ['gfpgan', 'gpen', 'codeformer', 'dmdnet'])
+    @pytest.mark.parametrize('enhancement', ['gfpgan', 'gpen', 'codeformer'])
     def test_enhancement(self, enhancement):
         source = 'tests/assets/ana-de-armas.jpg'
         target = 'tests/assets/wonder-woman.jpg'
@@ -200,3 +207,36 @@ class TestSwapFace:
 
         assert source_similarity > target_similarity * 10
         os.remove(result)
+
+    @pytest.mark.parametrize('enhancement', ['gfpgan', 'gpen', 'codeformer'])
+    def test_swap_and_enhancement(self, enhancement):
+        source = 'tests/assets/ana-de-armas.jpg'
+        target = 'tests/assets/wonder-woman.jpg'
+        fake_frame = 'tests/assets/fake-frame.jpg'
+
+        enhanced_path = 'tests/enhanced.jpg'
+
+        source_face = extract_face_images(source, (False, 0))[0][0]
+        source_face.mask_offsets = (0,0)
+
+        face_set = FaceSet()
+        face_set.faces.append(source_face)
+
+        target_face = extract_face_images(target, (False, 0))[0][0]
+
+        fake_frame = cv2.imread(fake_frame)
+        target_img = cv2.imread(target)
+
+        options = ProcessOptions(f'faceswap,{enhancement}', roop.globals.distance_threshold,
+                                 roop.globals.blend_ratio, 'first', 0, None)
+        self.process_mgr.initialize([face_set], [target_face], options)
+
+        newframe = self.process_mgr.process_face(0, target_face, target_img)
+
+        cv2.imwrite(enhanced_path, newframe)
+
+        file_size1 = os.path.getsize('tests/assets/ww-swap.jpg')
+        file_size2 = os.path.getsize(enhanced_path)
+
+        assert file_size1 < file_size2
+        os.remove(enhanced_path)

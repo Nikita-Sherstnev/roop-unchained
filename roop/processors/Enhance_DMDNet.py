@@ -34,11 +34,11 @@ class Enhance_DMDNet():
 
     # temp_frame already cropped+aligned, bbox not
     def Run(self, source_faceset: FaceSet, target_face: Face, temp_frame: Frame) -> Frame:
-        input_size = temp_frame.shape[1]
+        input_size = temp_frame.shape[2]
 
         result = self.enhance_face(source_faceset, temp_frame, target_face)
         scale_factor = int(result.shape[1] / input_size)
-        return result.astype(np.uint8), scale_factor
+        return result, scale_factor
 
 
     def Release(self):
@@ -102,14 +102,16 @@ class Enhance_DMDNet():
             M = face.matrix * scale_factor
 
             lq_landmarks = self.trans_points2d(lq_landmarks, M)
-            temp_frame = cv2.resize(temp_frame, (512,512), interpolation = cv2.INTER_AREA)
+            # temp_frame = cv2.resize(temp_frame, (512,512), interpolation = cv2.INTER_AREA)
+            temp_frame = F.interpolate(temp_frame, size=512, mode='bilinear', align_corners=False)
 
         if temp_frame.ndim == 2:
             temp_frame = cv2.cvtColor(temp_frame, cv2.COLOR_GRAY2RGB)  # GGG
         # else:
         #     temp_frame = cv2.cvtColor(temp_frame, cv2.COLOR_BGR2RGB)  # RGB
 
-        lq = read_img_tensor(temp_frame)
+        # lq = read_img_tensor(temp_frame)
+        lq = normalize(temp_frame, [0.5,0.5,0.5], [0.5,0.5,0.5], inplace=False)
 
         LQLocs = get_component_location(lq_landmarks)
         # self.check_bbox(lq, LQLocs.unsqueeze(0))
@@ -186,8 +188,8 @@ class Enhance_DMDNet():
             save_generic = GenericResult * 0.5 + 0.5
             save_generic = save_generic.squeeze(0).permute(1, 2, 0).flip(2) # RGB->BGR
             save_generic = np.clip(save_generic.float().cpu().numpy(), 0, 1) * 255.0
-            temp_frame =  save_generic.astype("uint8")
-        temp_frame = cv2.cvtColor(temp_frame, cv2.COLOR_RGB2BGR)  # RGB
+            temp_frame =  save_generic.byte()
+        # temp_frame = cv2.cvtColor(temp_frame, cv2.COLOR_RGB2BGR)  # RGB
         return temp_frame
 
 
