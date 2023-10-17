@@ -32,7 +32,6 @@ class Enhance_GPEN():
     def Run(self, source_faceset: FaceSet, target_face: Face, temp_frame: Frame) -> Frame:
         input_size = temp_frame.shape[2]
 
-        # cropped_face = cv2.resize(temp_frame, (512, 512), interpolation=cv2.INTER_LINEAR)
         cropped_face = F.interpolate(temp_frame, size=512, mode='bilinear', align_corners=False)
 
         result = self.model_gpen.process(cropped_face)
