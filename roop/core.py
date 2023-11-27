@@ -130,6 +130,7 @@ def pre_check() -> bool:
     util.conditional_download(download_directory_path, ['https://huggingface.co/Sherstnev/inswapper-128-torch/resolve/main/buffalo_l/det_10g.pt'])
     util.conditional_download(download_directory_path, ['https://huggingface.co/Sherstnev/inswapper-128-torch/resolve/main/buffalo_l/genderage.pt'])
     util.conditional_download(download_directory_path, ['https://huggingface.co/Sherstnev/inswapper-128-torch/resolve/main/buffalo_l/w600k_r50.pt'])
+    util.conditional_download(download_directory_path, ['https://huggingface.co/Sherstnev/inswapper-128-torch/resolve/main/meanshape_68.pkl'])
 
     if not shutil.which('ffmpeg'):
        update_status('ffmpeg is not installed.')
