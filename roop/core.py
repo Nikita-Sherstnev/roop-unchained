@@ -117,6 +117,7 @@ def pre_check() -> bool:
 
     download_directory_path = util.resolve_relative_path('../models')
     util.conditional_download(download_directory_path, ['https://huggingface.co/Sherstnev/inswapper-128-torch/resolve/main/inswapper_128.pt'])
+    util.conditional_download(download_directory_path, ['https://huggingface.co/Sherstnev/inswapper-128-torch/resolve/main/meanshape_68.pkl'])
     util.conditional_download(download_directory_path, ['https://github.com/TencentARC/GFPGAN/releases/download/v1.3.4/GFPGANv1.4.pth'])
     util.conditional_download(download_directory_path, ['https://github.com/csxmli2016/DMDNet/releases/download/v1/DMDNet.pth'])
     util.conditional_download(download_directory_path, ['https://huggingface.co/akhaliq/GPEN-BFR-512/resolve/main/GPEN-BFR-512.pth'])
@@ -130,7 +131,10 @@ def pre_check() -> bool:
     util.conditional_download(download_directory_path, ['https://huggingface.co/Sherstnev/inswapper-128-torch/resolve/main/buffalo_l/det_10g.pt'])
     util.conditional_download(download_directory_path, ['https://huggingface.co/Sherstnev/inswapper-128-torch/resolve/main/buffalo_l/genderage.pt'])
     util.conditional_download(download_directory_path, ['https://huggingface.co/Sherstnev/inswapper-128-torch/resolve/main/buffalo_l/w600k_r50.pt'])
-    util.conditional_download(download_directory_path, ['https://huggingface.co/Sherstnev/inswapper-128-torch/resolve/main/meanshape_68.pkl'])
+
+    download_directory_path = util.resolve_relative_path('../models/Restoreformer')
+    util.conditional_download(download_directory_path, ['https://github.com/wzhouxiff/RestoreFormerPlusPlus/releases/download/v1.0.0/RestoreFormer++.ckpt'])
+    util.conditional_download(download_directory_path, ['https://github.com/wzhouxiff/RestoreFormerPlusPlus/releases/download/v1.0.0/RestoreFormer.ckpt'])
 
     if not shutil.which('ffmpeg'):
        update_status('ffmpeg is not installed.')
@@ -174,6 +178,8 @@ def get_processing_plugins(use_clip):
         processors += ",gfpgan"
     elif roop.globals.selected_enhancer == 'Codeformer':
         processors += ",codeformer"
+    elif roop.globals.selected_enhancer == 'Restoreformer':
+        processors += ",restoreformer"
     elif roop.globals.selected_enhancer == 'DMDNet':
         processors += ",dmdnet"
     elif roop.globals.selected_enhancer == 'GPEN':

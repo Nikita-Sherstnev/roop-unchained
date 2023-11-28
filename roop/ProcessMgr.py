@@ -59,12 +59,13 @@ class ProcessMgr():
 
 
     plugins =  {
-    'faceswap'      : 'FaceSwapInsightFace',
-    'mask_clip2seg' : 'Mask_Clip2Seg',
-    'codeformer'    : 'Enhance_CodeFormer',
-    'gfpgan'        : 'Enhance_GFPGAN',
-    'dmdnet'        : 'Enhance_DMDNet',
-    'gpen'          : 'Enhance_GPEN',
+        'faceswap'      : 'FaceSwapInsightFace',
+        'mask_clip2seg' : 'Mask_Clip2Seg',
+        'codeformer'    : 'Enhance_CodeFormer',
+        'restoreformer' : 'Enhance_Restoreformer',
+        'gfpgan'        : 'Enhance_GFPGAN',
+        'dmdnet'        : 'Enhance_DMDNet',
+        'gpen'          : 'Enhance_GPEN',
     }
 
     def __init__(self, progress):
@@ -83,6 +84,7 @@ class ProcessMgr():
             for pn in processornames:
                 classname = self.plugins[pn]
                 module = 'roop.processors.' + classname
+                print(classname)
                 p = str_to_class(module, classname)
                 p.Initialize(devicename)
                 self.processors.append(p)
