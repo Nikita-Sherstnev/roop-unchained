@@ -20,7 +20,7 @@ def facemgr_tab():
                         """)
         with gr.Row():
             fb_facesetfile = gr.Files(label='Faceset', file_count='single', file_types=['.fsz'], interactive=True)
-            fb_files = gr.Files(label='Input Files', interactive=True)
+            fb_files = gr.Files(label='Input Files', file_count="multiple", file_types=["image"], interactive=True)
         with gr.Row():
             with gr.Column():
                 gr.Button("👀 Open Output Folder", size='sm').click(fn=lambda: util.open_folder(roop.globals.output_path))
