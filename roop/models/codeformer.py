@@ -749,12 +749,12 @@ if __name__ == "__main__":
     net = CodeFormer(dim_embd=512, codebook_size=1024, n_head=8, n_layers=9,
                     connect_list=['32', '64', '128', '256']).to(device)
 
-    ckpt_path = 'models/CodeFormer/codeformer.pth'
+    ckpt_path = 'models/codeformer.pth'
     checkpoint = torch.load(ckpt_path)['params_ema']
     net.load_state_dict(checkpoint)
     net.eval()
 
-    fake_frame = 'tests/assets/fake-frame.jpg'
+    fake_frame = 'BlendFace/swapping/exp/output5.png'
     cropped_face = cv2.imread(fake_frame)
 
     cropped_face = cv2.resize(cropped_face, (512, 512), interpolation=cv2.INTER_LINEAR)

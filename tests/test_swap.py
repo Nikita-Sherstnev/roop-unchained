@@ -89,7 +89,7 @@ class TestSwapFace:
         assert source_similarity > target_similarity * 10
         os.remove(result)
 
-    @pytest.mark.parametrize('enhancement', ['gfpgan', 'gpen', 'codeformer', 'dmdnet'])
+    @pytest.mark.parametrize('enhancement', ['gfpgan', 'gpen', 'codeformer', 'dmdnet', 'restoreformer'])
     def test_enhancement(self, enhancement):
         source = 'tests/assets/ana-de-armas.jpg'
         target = 'tests/assets/wonder-woman.jpg'
